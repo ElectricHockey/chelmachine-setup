@@ -7,22 +7,22 @@
         "client_id": "1379545091927965767",
         "client_secret": "2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD",
         "callback_url": {
-            "dev": "http://10.0.0.38:3000/auth/discord/callback",
-            "prod": "https://electrichockeyleague.com/auth/discord/callback"
+            "dev": "http://localhost:3000/auth/discord/callback",
+            "prod": "https://chelmachine-setup-production.up.railway.app/auth/discord/callback"
         }
     },
     "availability": {
         "enabled": true,
         "days": ["monday","tuesday","wednesday","thursday"],
-        "times": ["9:00 PM EST", "9:35 PM EST", "10:10 PM EST"]
+        "times": ["9:00 PM EST", "9:25 PM EST", "10:10 PM EST"]
     },
-    "db": "ehl",
-    "roster_max": 22,
+    "db": "ehldb",
+    "roster_max": 12,
     "count_cpu_goals": true,
     "images": {
         "logo": {
-            "url": "https://chelmachine.nyc3.digitaloceanspaces.com/static/chelmachine/logo.png",
-            "alt": "EHL Logo"
+            "url": "/images/discord-logo-blue.png",
+            "alt": "Electric Hockey League Logo"
         }
     },
     "playoffs": {
@@ -36,7 +36,7 @@
     "url": {
         "css": "/stylesheets/theme.css",
         "font_css": "https://fonts.googleapis.com/css?family=Ubuntu+Mono",
-        "home": "https://electrichockeyleague.com"
+        "home": "https://chelmachine-setup-production.up.railway.app"
     },
     "schedule_start_day": 0
 }
