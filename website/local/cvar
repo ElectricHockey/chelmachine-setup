@@ -1,0 +1,19 @@
+const config = global.config;
+
+const get = async function(client, name, default_value) {
+    const cvar = await client.db(config.db).collection('cvars').findOne({name});
+    if (cvar) {
+        return cvar.value;
+    } else {
+        return default_value;
+    }
+}
+
+const set = async function(client, name, value) {
+    await client.db(config.db).collection('cvars').updateOne({name},{$set:{value}},{upsert:true});
+}
+
+module.exports = {
+    get,
+    set,
+};
