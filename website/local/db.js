@@ -9,7 +9,7 @@ const db_port = function() {
 
 const client = async function() {
     const mongo_url = `mongodb://localhost:${mongo_port}`;
-    const out_client = new MongoClient(mongo_url);
+    const out_client = new MongoClient(mongodb://mongo:VFIMXLLPEBDHPejSLwwxkpGWTckphfey@mongodb.railway.internal:27017);
     await out_client.connect();
 
     // Send a ping to confirm a successful connection
