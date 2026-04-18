@@ -1,0 +1,65 @@
+extends layout
+include _visual
+include _newstats
+
+block content
+    h1 🏒 Standings
+    p Season: 
+        select(id='season',onchange=`window.location.href="/standings?game_type=${game_type}&format=${format}&season_id="+this.value;`)
+            for season in seasons
+                option(value=season.season_id,selected=query.season_id==season.season_id)=season.label
+    p Game Type:
+        select(id='game_type',onchange=`window.location.href="/standings?season_id=${season_id}&format=${format}&game_type="+this.value;`)
+            for gt in game_types
+                option(value=gt,selected=gt==game_type)=gt
+    p Format:
+        select(id='format',onchange=`window.location.href="/standings?season_id=${season_id}&game_type=${game_type}&format="+this.value;`)
+            for f in formats
+                option(value=f,selected=format==f)=f
+    br
+    if format == 'league'
+        +team_standings_stats(stats)
+    else if format == 'division'
+        -
+            division_stats = {};
+            stats.forEach((s) => {
+                const label = `${s.team.conference} Conference, ${s.team.division} Division`;
+                if (!(label in division_stats)) {
+                    division_stats[label] = [];
+                }
+                division_stats[label].push(s);
+            });
+            stat_labels = Object.keys(division_stats).sort((a,b)=>b.toLowerCase().localeCompare(a.toLowerCase()));;
+            console.log(JSON.stringify(stat_labels));
+        for stat_label in stat_labels
+            .page_width=stat_label
+            +team_standings_stats(division_stats[stat_label])
+            br
+    else if format == 'conference'
+        -
+            conference_stats = {};
+            stats.forEach((s) => {
+                const label = `${s.team.conference} Conference`;
+                if (!(label in conference_stats)) {
+                    conference_stats[label] = [];
+                }
+                conference_stats[label].push(s);
+            });
+        for stats, stat_label in conference_stats
+            .page_width=stat_label
+            +team_standings_stats(stats)
+            br
+    else
+        p Unsupported Format #{format}
+    br
+    //-table.page_width.colorized
+        tr
+            th Tie-breaking Procedure:
+        tr
+            td
+                ul
+                    li Fewer Games Played (GP)
+                    li More Regulation Wins (RW)
+                    li More Total Wins (W)
+                    li Higher Point Differential (DIFF)
+                    li More Goals For (GF)

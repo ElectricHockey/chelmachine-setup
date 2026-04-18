@@ -1,0 +1,36 @@
+extends layout
+include _visual
+
+block content
+    h1 Free Agent Offer Acceptance
+    p You have pending offers! Review below and accept. All transactions are final. 
+        | Offers automatically rescind after the expiration date.
+
+    table.page_width.colorized
+        tr
+            th.red You have #{pending_free_agent_offers.length} 
+                if pending_free_agent_offers.length > 1
+                    | Offers
+                else 
+                    | Offer
+    - let idx = 0;
+    for offer in pending_free_agent_offers
+        - const offer_team = current_teams.find((t)=>t._id.equals(offer.team));
+        form(action='/offer',method='POST')
+            input(type='hidden',name='offer_id',value=offer._id)
+            table.page_width.colorized
+                tr
+                    th(colspan=2) Offer #{++idx} of #{pending_free_agent_offers.length}
+                tr
+                    td(colspan=2).center
+                        +team_logo(offer_team)
+                tr
+                    td.right Team:
+                    td.center=offer_team.team_name
+                tr
+                    td.right Expires:
+                    td.center=pretty_date(offer.expires)
+                tr
+                    th(colspan=2).center
+                        button(type='submit') Accept Offer
+            

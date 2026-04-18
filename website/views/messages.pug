@@ -1,0 +1,33 @@
+extends layout
+include _visual
+
+block content
+    table.page_width.colorized
+        tr
+            th(colspan=3) Message Center
+        tr
+            th Date
+            th New
+            th Message
+        if messages && messages.length
+            for message in messages
+                tr
+                    td=pretty_date(message.time)
+                    td.center
+                        if !message.read
+                            span ✨
+                    td=message.data
+            tr
+                th(colspan=3)
+                    form(action='/messages',method='POST')
+                        input(type='hidden',name='read',value='1')
+                        button(type='submit') Mark All Messages Read
+            tr
+                th(colspan=3)
+                    form(action='/messages',method='POST')
+                        input(type='hidden',name='delete',value='1')
+                        button(type='submit') Delete All Messages
+        else
+            tr
+                td(colspan=3).center No Messages
+            

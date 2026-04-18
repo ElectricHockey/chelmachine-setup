@@ -1,0 +1,35 @@
+extends layout
+include _visual
+
+block content
+    h1 Trophy Case
+    if trophies && trophies.length > 0
+        div
+            span Season:
+            select(name='season_id',onchange='window.location.href="/trophy_case?season_id="+this.value;')
+                for season in seasons
+                    option(value=season.season_id,selected=query.season_id==season.season_id)=season.label
+        - const current_season = ('season_id' in query) ? seasons.find((s)=>s.season_id==query.season_id) : seasons[0];
+        .playoff_round Trophy Case for #{current_season.label}
+        for trophy in trophies
+            - const winner = winners.find((w)=>w.trophy_id.equals(trophy._id));
+            div.playoff_series.float_left
+                if trophy.type == 'player'
+                    .center.small.italic Player Award
+                else
+                    .center.small.italic Team Award
+                .center.yellow.x-large=trophy.name
+                .center=trophy.description
+                if winner
+                    .center.italic.x-large.trophy_winner
+                        if winner.type =='player'
+                            +discord_avatar(winner.user,'logo_small')
+                            +discord_username(winner.user)
+                        else
+                            +team_logo(winner.team,'logo_small')
+                            a(href=`/team?_id=${winner.team._id}`)=winner.team.team_name
+                else
+                    .center.italic.x-large.trophy_winner No Recipient
+        div(style='clear: left;')
+    else
+        .center.page_width There are no Trophies yet to display in the case. Talk to your league admin about adding Trophies!

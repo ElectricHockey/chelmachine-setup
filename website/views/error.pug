@@ -1,0 +1,10 @@
+doctype html
+html
+  head
+    title 404 Error
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    link(rel='stylesheet', href=config.url.css)
+  body
+    h1= message
+    h2= error.status
+    pre #{error.stack}

@@ -1,0 +1,117 @@
+mixin menu_link(label, url, target)
+  div
+    a.yellow(href=url,target=target)=label
+
+doctype html
+html(lang='en')
+  head
+    title=url_title
+    link(rel='stylesheet', href=config.url.font_css)
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    link(rel='stylesheet', href=config.url.css)
+    if global.dev_mode
+      style.
+        body { background-image: none; background-color: #880000; }
+    else if config.images.background
+      style.
+        body { background-position: cover; background-image: url(!{config.images.background.url}); }
+    meta(property='og:title',content=url_title)
+    meta(property='og:description',content=embed_description)
+    meta(property='og:image',content=config.images.logo.url)
+    meta(property='og:url',content=config.url.home)
+    meta(property='theme-color',content='#333333',data-react-helmet='true')
+    meta(name='viewport',content='width=device-width, initial-scale=1.0')
+    script(src='https://code.jquery.com/jquery-3.7.1.slim.min.js',integrity='sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8=',crossorigin='anonymous')
+    script.
+      $(document).ready(function() {
+        $('.menu_icon').click(function () {
+          $('.menu').toggle();
+        });
+      });
+  body
+    if config.site.show_header
+      .header
+        table.page_width
+          tr
+            td.header_title
+                .menu_icon
+                  div
+                  div
+                  div
+            td(width=!pending_free_agent_offers?'100%':undefined)
+              a(href='/')
+                img.menu_logo(src=config.images.logo.url,alt=config.images.logo.alt)
+            if pending_free_agent_offers
+              td(width='100%')
+                span.red
+                  a(href='/offer') PENDING FA OFFERS (#{pending_free_agent_offers.length})
+            td.right
+              if user
+                if session.application
+                  .user_links
+                    a(href='/messages') #{has_unread_messages ? '📬' : '📪'}
+                    a(href='/profile') 👤
+                else
+                  span.purple
+                    a(href='/profile') SIGNUP
+              else
+                div.nowrap
+                  a(href='/auth/discord') LOGIN
+                    img.discord_logo_tiny(src='/images/discord-mark-blue.png',alt='DISCORD')
+      .menu(style='display: none;')
+        +menu_link('📏 RULES','/rulebook')
+        if user || !config.site.login_required_for_menu
+          +menu_link('📅 SCHEDULE','/schedule')
+          +menu_link('🏒 STANDINGS','/standings')
+          +menu_link('📊 PLAYER LEADERS','/player_stats')
+          +menu_link('📊 TEAM LEADERS','/team_stats')
+          +menu_link('🏆 TROPHY CASE','/trophy_case')
+        if config.url.shop
+          +menu_link('🛒 SHOP',config.url.shop,'_blank')
+        if config.url.shop2
+          +menu_link('🛒 CITRUS DOME',config.url.shop2,'_blank')
+        if config.url.podcast
+          +menu_link('🎙 PODCAST',config.url.podcast,'_blank')
+        if user || !config.site.login_required_for_menu
+          if config.url.form_podcast
+            +menu_link('📝 PODCAST GUEST FORM',config.url.form_podcast,'_blank')
+          if config.url.form_owner
+            +menu_link('📝 TEAM OWNER FORM',config.url.form_owner,'_blank')
+          if config.url.form_staff
+            +menu_link('📝 STAFF OWNER FORM',config.url.form_staff,'_blank')
+        if user
+          +menu_link('🚪 LOGOUT','/login?logout=true')
+        else
+          +menu_link('🚪 LOGIN','/auth/discord')
+        if has_team_owner_access()
+          div
+            a.purple(href='/front_office/index') 🏢 FRONT OFFICE
+        if has_admin_access()
+          div
+            a.red(href='/admin') 🏛 ADMIN
+    if query && query.status !== undefined
+      br
+      br
+      br
+      table.page_width.colorized
+        tr
+          td
+            span.red=query.status
+
+    if config.site.show_header && user && !session.application && !hide_dapp_submission_notice
+      h1.page_width
+        a.purple(href='/profile') CLICK HERE TO SIGN UP
+
+    .page_width.page_top
+      block content
+    br
+    .center.footer.small
+      if config.site.show_privacy_tos
+        a(href="/terms/privacy") Privacy Policy
+        span |
+        a(href="/terms/service") Terms of Service
+        br
+        br
+      span.yellow site version #{version}
+    br
+    br

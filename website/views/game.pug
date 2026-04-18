@@ -1,0 +1,111 @@
+extends layout
+include _visual
+include _newstats
+
+mixin playername(player)
+  - const user = users.filter((u)=>u.gamertags&&u.gamertags[player.clientPlatform]==player.playername)[0];
+  if user
+    +discord_avatar_tiny(user)
+    +discord_username(user)
+  else
+    a(href=`/player?${player.clientPlatform}=${encodeURIComponent(player.playername)}`)=player.playername
+
+mixin lineup_position(lineup,fullname,initial)
+  div.half_page_width
+    div.left
+      div(class=`position_circle position_${fullname}`)=initial
+      span :
+      span=lineup[fullname]
+
+mixin box_score_side_rows(side)
+  tr
+    if game[side]
+      td.right=game[side].toUpperCase()
+    else
+      td.right=side.toUpperCase()
+    td.center=game.box_score[side]['1p']
+    td.center=game.box_score[side]['2p']
+    td.center=game.box_score[side]['3p']
+    td.center=game.box_score[side]['ot']
+    td.center=game.box_score[side]['so']
+    td.center=game.box_score[side]['tot']
+
+mixin box_score
+  if game.box_score
+    br
+    table.half_page_width.colorized
+      tr
+        th(colspan=7) Box Score
+      tr
+        th
+        th 1st
+        th 2nd
+        th 3rd
+        th OT
+        th SO
+        th TOT
+      +box_score_side_rows('away')
+      +box_score_side_rows('home')
+
+block content
+  table.page_width.colorized
+    tr
+      th(colspan=2) Game Details
+    tr
+      td(colspan=2)=pretty_date(game.date)
+    tr
+      td.right Stat Source:
+      td
+        if game.game_stats
+          - const stats = game.game_stats;
+          if stats.matchId
+            span EA Stats
+          else if stats.ea_matchids
+            span Merged #{stats.ea_matchids.length} EA Stats
+          else if stats.mso
+            a(href=stats.mso.url) MSO
+        else
+          span UNKNOWN
+  br
+  table.page_width.colorized
+    tr
+      th.half_page_width Away
+      th Final
+        if away_stats.result === '5' || away_stats.result === '6'
+          span &nbsp;(OT)
+      th.half_page_width Home
+    tr
+      td.center
+        a(href=`/team?_id=${game.away_team._id}`)
+          +team_logo(game.away_team, 'logo_medium')
+      td.center.final_score 
+        p #{away_stats.gfraw} - #{home_stats.gfraw}
+      td.center
+        a(href=`/team?_id=${game.home_team._id}`)
+          +team_logo(game.home_team, 'logo_medium') 
+    tr
+      td.center=away_stats.shots
+      td.center Shots
+      td.center=home_stats.shots
+    tr
+      td.center #{away_stats.ppg} / #{away_stats.ppo}
+      td.center.nowrap Power Play
+      td.center #{home_stats.ppg} / #{home_stats.ppo}
+    tr
+      td.center #{home_stats.ppo - home_stats.ppg} / #{home_stats.ppo}
+      td.center.nowrap Penalty Kill
+      td.center #{away_stats.ppo - away_stats.ppg} / #{away_stats.ppo}
+    tr
+      td.center=away_stats.toa
+      td.center.nowrap Time On Attack
+      td.center=home_stats.toa
+  +box_score()
+  for club, club_id in game.game_stats.clubs
+    - const team = game.away_club_id == club_id ? game.away_team : game.home_team;
+    - const skater_stats = (team == game.away_team) ? away_skater_stats : home_skater_stats;
+    - const goalie_stats = (team == game.away_team) ? away_goalie_stats : home_goalie_stats;
+    p=team.team_name
+    +skater_stats_table(skater_stats,['TEAM','GP'])
+    br
+    +goalie_stats_table(goalie_stats,['TEAM','GP'])
+  +stat_legend_container()

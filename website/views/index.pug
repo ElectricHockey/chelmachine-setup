@@ -1,0 +1,62 @@
+extends layout
+include _visual
+
+block content
+  if playoffs.length
+    for playoff_series in playoffs
+      h1 #{playoff_series.season.label} Playoffs
+      - let round;
+      for series in playoff_series
+        if round != series.playoff_round
+          - round = series.playoff_round
+          div.playoff_round=round
+        - teams.forEach((t)=>{if(t.team_id==series.teams[0].team_id) series.teams[0].team=t; else if (t.team_id==series.teams[1].team_id) series.teams[1].team=t;});
+        div.playoff_series.float_left
+          - if (series.teams[0].team && series.teams[1].team)
+            div.center
+              span (#{series.teams[0].seed})
+              a(href=`/team?_id=${series.teams[0].team._id}`)
+                +team_logo(series.teams[0].team,'logo_small')
+              span 🆚
+              a(href=`/team?_id=${series.teams[1].team._id}`)
+                +team_logo(series.teams[1].team,'logo_small')
+              span (#{series.teams[1].seed})
+            div.center
+              span.final_score=series.teams[0].record
+              span.final_score ➖
+              span.final_score=series.teams[1].record
+            if series.games
+              for game in series.games
+                - const home_team = series.teams.find((t)=>t.team_id==game.home_club_id).team;
+                - const away_team = series.teams.find((t)=>t.team_id==game.away_club_id).team;
+                - const away_winner = parseInt(game.away_score) > parseInt(game.home_score) || game.forfeit_winner == game.away_club_id;
+                - const home_winner = parseInt(game.home_score) > parseInt(game.away_score) || game.forfeit_winner == game.home_club_id;
+                div.center
+                  a(href=`/team?_id=${away_team._id}`,class=away_winner?'playoff_winner':'playoff_participant')
+                    +team_logo(away_team,'logo_small')
+                  span
+                    if game.stats
+                      if game.forfeit_draw === true
+                        span.nowrap.center.playoff_score.black 0 - 0
+                      else if game.forfeit_winner
+                          if game.forfeit_winner === game.away_club_id
+                              span.center.nowrap.playoff_score.black 1 - 0 FF
+                          else if game.forfeit_winner === game.home_club_id
+                              span.center.nowrap.playoff_score.black 0 - 1 FF
+                      else
+                          span.center.nowrap.playoff_score
+                              a.game_score(href=`/game?_id=${game._id}`) #{game.away_score} - #{game.home_score}
+                                  if game.ot === true
+                                      span &nbsp;(OT)
+                    else
+                      span @
+                  a(href=`/team?_id=${home_team._id}`,class=home_winner?'playoff_winner':'playoff_participant')
+                    +team_logo(home_team,'logo_small')
+          div(style='clear: left;')
+
+  if indexmd
+    div !{indexmd}
+  else
+    h1 No Index Page
+
+    

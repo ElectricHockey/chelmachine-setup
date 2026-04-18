@@ -1,0 +1,54 @@
+
+mixin hockey_position_icon(fullname)
+    - const vp = ['center','left_wing','right_wing','left_defense','right_defense','goalie'];
+    - const il = ['C','LW','RW','LD','RD','G']
+    - const initial = il[vp.indexOf(fullname)]
+    div(class=`position_circle position_${fullname}`)=initial
+
+
+mixin hockey_position(fullname, initial)
+    - const positions = user.positions ? user.positions : (user.application ? user.application.positions : []);
+    +hockey_position_icon(fullname)
+    input(type='checkbox',name=`position_${fullname}`,checked=positions?positions.includes(fullname):false)
+
+mixin hockey_positions()
+    +hockey_position('center','C')
+    +hockey_position('left_wing','LW')
+    +hockey_position('right_wing','RW')
+    +hockey_position('left_defense','LD')
+    +hockey_position('right_defense','RD')
+    +hockey_position('goalie','G')
+
+mixin discord_avatar(user, styleclass)
+    if user && user.membership
+        img.round(class=styleclass,src=user.membership.displayAvatarURL,alt='')
+
+mixin discord_avatar_small(user)
+    +discord_avatar(user,'logo_small')
+
+mixin discord_avatar_tiny(user)
+    +discord_avatar(user,'logo_tiny')
+
+mixin discord_username(userobj)
+    if userobj
+        - const selfuser = user && userobj.auth.username === user.username;
+        - const linkclass = selfuser ? 'red' : '';
+        - const username = userobj.membership ? userobj.membership.displayName : userobj.auth.username;
+        a(class=linkclass,href=`/player?username=${userobj.auth.username}`)=username
+    else
+        span.red ERROR
+
+mixin team_logo(team,imgclass)
+    if team
+        if team.logo_url
+            img(class=imgclass,src=team.logo_url,alt=team.team_name)
+        else
+            span=team.team_name
+    else
+        span.red ERROR: NO TEAM
+
+mixin dropdown_season(onchg)
+  span Season:
+    select(id='season_id',onchange=onchg)
+      for s in seasons
+        option(value=s.season_id,selected=s.season_id===season_id)=s.label

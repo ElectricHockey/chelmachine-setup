@@ -1,0 +1,13 @@
+extends layout
+
+block content
+    if privacy === true
+        h1 Privacy Policy
+        p Your data is very important to us. Several steps were taken to ensure the integrity of your data in case of a breach.
+        h2 Authentication
+        p Authentication is handled via Discord Authentication to avoid saving passwords. You can see what is collected on the login page. We only use this data to authenticate you with your site account.
+    else if service === true
+        h1 Terms of Service
+        p Usage of this website also consents to the use of our Terms of service.
+        h2 User Expectations
+        p Users are expected to use the website in a proper manner.

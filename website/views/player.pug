@@ -1,0 +1,106 @@
+extends layout
+include _visual
+include _newstats
+
+mixin team_link(team_id, team_name)
+  span=team_name
+
+mixin team_logo_player(away_team_id, away_team_name, home_team_id, home_team_name, player_club_id)
+  td.center
+    if parseInt(away_team_id) === parseInt(player_club_id)
+      +team_link(away_team_id, away_team_name)
+    else
+      +team_link(home_team_id, home_team_name)
+
+mixin opp_logo(away_team_id, away_team_name, home_team_id, home_team_name, player_club_id)
+  td.center
+    if parseInt(away_team_id) === parseInt(player_club_id)
+      +team_link(home_team_id, home_team_name)
+    else
+      +team_link(away_team_id, away_team_name)
+
+mixin game_result(game, player_club_id)
+  - var game_stats = game.game_stats;
+  td.center
+    a.nowrap(href=`/game?_id=${game._id}`)
+      if game_stats.clubs[player_club_id].result == '1'
+        span.green W 
+      else if game_stats.clubs[player_club_id].result == '2'
+        span.loss_red L 
+      else if game_stats.clubs[player_club_id].result == '5'
+        span.green OTW 
+      else if game_stats.clubs[player_club_id].result == '6'
+        span.loss_red OTL 
+      else if game_stats.clubs[player_club_id].losses == '1'
+        span.loss_red L 
+      else
+        span.green W 
+      - var team_club = game_stats.clubs[player_club_id];
+      - var other_club_id = Object.keys(game_stats.clubs).filter((c) => c != player_club_id)[0];
+      span.bold=team_club.score
+      span.bold -
+      span.bold=game_stats.clubs[other_club_id].score
+
+mixin team_opp_cells(player)
+  +team_logo_player(player.game.away_club_id, player.game.away, player.game.home_club_id, player.game.home, player.club_id)
+  +game_result(player.game, player.club_id)
+  +opp_logo(player.game.away_club_id, player.game.away, player.game.home_club_id, player.game.home, player.club_id)
+
+block content
+  h1.page_width Player Card
+  if player
+    table.page_width.colorized
+      tr
+        thSummary
+      tr
+        td
+          +discord_avatar(player)
+          +discord_username(player)
+      tr
+        if team
+          td
+            +team_logo(team, 'logo_small')
+        else
+          td Free Agent
+    br
+  .page_width
+    -
+      const qp = () => {
+        if (query.username) {
+          return `username=${query.username}`;
+        } else if (query.xbsx) {
+          return `xbsx=${query.xbsx}`;
+        } else if (query.ps5) {
+          return `ps5=${query.ps5}`;
+        }
+      };
+      const season_url = `window.location.href="/player?${qp()}&game_type=${game_type}&season_id="+this.value;`;
+    div
+      span Season Stats:
+      select(id='season',onchange=season_url)
+        for season in seasons
+          option(value=season.season_id,selected=current_season.season_id===season.season_id)=season.label
+    div
+      span Game Type:
+      select(id='game_type',onchange=`window.location.href="/player?${qp()}&season_id=${current_season.season_id}&game_type="+this.value;`)
+        option(value='preseason',selected=game_type=='preseason') Preseason
+        option(value='regular',selected=game_type=='regular') Regular Season
+        option(value='playoffs',selected=game_type=='playoffs') Playoffs
+    if skater_season_stats.length > 0
+      p Season Skater Stats
+      +skater_stats_table(skater_season_stats,['POS','RANK','TEAM'])
+      br
+    if goalie_season_stats.length > 0
+      p Season Goalie Stats
+      +goalie_stats_table(goalie_season_stats,['TEAM'])
+      br
+    if skater_game_log.length > 0
+      p Skater Game Log
+      +skater_game_log_stats(skater_game_log)
+      br
+    if goalie_game_log.length > 0
+      p Goalie Game Log
+      +goalie_game_log_stats(goalie_game_log)
+    +stat_legend_container()
+  
+

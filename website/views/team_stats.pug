@@ -1,0 +1,69 @@
+extends layout
+include _newstats
+include _visual
+
+mixin dropdown_gametype()
+  span  Game Type: 
+  select(name='game_type',onchange=`window.location.href="/team_stats?full_stats=${query.full_stats}&season_id=${season_id}&game_type="+this.value;`)
+    for type in game_types
+      option(value=type,selected=type==game_type)=type
+
+block content
+  if full_stats === true
+    - const fullstatschg = `window.location.href="/team_stats?game_type=${game_type}&full_stats=${query.full_stats}&season_id="+this.value;`;
+    if query.full_stats === 'skater'
+      h1 📊 Team Skater Statistics
+      +dropdown_season(fullstatschg)
+      +dropdown_gametype()
+      br
+      +team_skater_stats_table(stats)
+    else if query.full_stats === 'goalie'
+      h1 Team Goaltending Statistics
+      +dropdown_season(fullstatschg)
+      +dropdown_gametype()
+      br
+      +team_goalie_stats_table(stats)
+    +stat_legend_container()
+  else
+    h1 📊 Team Stat Leaders
+    +dropdown_season(`window.location.href="/team_stats?game_type=${game_type}&season_id="+this.value;`)
+    span  Game Type: 
+    select(name='game_type',onchange=`window.location.href="/team_stats?season_id=${season_id}&game_type="+this.value;`)
+      for type in game_types
+        option(value=type,selected=type==game_type)=type
+    table.page_width
+        tr
+          for category, cat_name in stats
+            td.valign_top
+              h2=cat_name
+              p
+                a.yellow(href=full_stat_links[cat_name])=full_stat_text[cat_name]
+              table.page_width.colorized
+                for stat_cat, stat_cat_name in category
+                  tr
+                    th(colspan=3)=stat_cat_name
+                  tr
+                    if stat_cat.data.length === 0
+                      td.center.large(colspan=3) No Leaders
+                    else
+                      for team_stats, rank in stat_cat.data
+                        - var first_stat = parseInt(rank) === 0;
+                        tr
+                          td #{parseInt(rank)+1}.
+                          td
+                            if first_stat
+                              span ⭐️
+                              a(href=`/team?_id=${team_stats.team._id}`)
+                                +team_logo(team_stats.team, 'logo_medium')
+                            else
+                              a(href=`/team?_id=${team_stats.team._id}`)
+                                +team_logo(team_stats.team, 'logo_small')
+                          - var stat_class = first_stat ? 'center large bold' : 'center';
+                          if stat_cat.percent === true
+                            td(class=stat_class)=pretty_percent(team_stats[stat_cat.datakey])
+                          else if stat_cat.gaa === true
+                            td(class=stat_class)=pretty_gaa(team_stats[stat_cat.datakey])
+                          else if stat_cat.plusminus === true
+                            td(class=stat_class)=pretty_plusminus(team_stats[stat_cat.datakey])
+                          else
+                            td(class=stat_class)=team_stats[stat_cat.datakey]

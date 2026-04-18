@@ -1,0 +1,118 @@
+extends layout
+include _newstats
+include _visual
+
+mixin player_team(player)
+  if player.team
+    a(href=`/team?_id=${player.team._id}`)
+      +team_logo(player.team, 'logo_small')
+
+mixin playerstats_name(player_stats)
+  if player_stats.user
+    +discord_avatar_small(player_stats.user)
+    +discord_username(player_stats.user)
+  else
+    a(href=`/player?${player_stats.clientPlatform}=${encodeURIComponent(player_stats.playername)}`)=player_stats.playername
+
+mixin dropdown_gametype(gametype_url)
+  span  Game Type: 
+  select(name='game_type',onchange=gametype_url)
+    for type in game_types
+      option(value=type,selected=game_type==type)=type
+
+mixin dropdown_daterange()
+  - let r = `window.location.href="/player_stats?full_stats=${query.full_stats}&season_id=${season_id}&game_type=${game_type}&team=${team}`;
+  span Start Date:
+  input(type='date',value=start_date,onchange=`${r}&end_date=${end_date}&start_date="+this.value;`)
+  span End Date:
+  input(type='date',value=end_date,onchange=`${r}&start_date=${start_date}&end_date="+this.value;`)
+
+mixin dropdown_team()
+  span Team:
+  select(onchange=`window.location.href="/player_stats?full_stats=${query.full_stats}&season_id=${season_id}&game_type=${game_type}&start_date=${start_date}&end_date=${end_date}&team="+this.value;`)
+    option(value='',selected=!query.team) All Teams
+    for team in teams
+      option(value=team._id,selected=team._id.equals(query.team))=team.team_name
+
+mixin dropdown_position()
+  span Position:
+  select(onchange=`window.location.href="/player_stats?full_stats=${query.full_stats}&season_id=${season_id}&game_type=${game_type}&start_date=${start_date}&end_date=${end_date}&team=${team}&position="+this.value;`)
+    option(value='',selected=position=='') ALL
+    option(value='C',selected=position=='C') Center
+    option(value='LW',selected=position=='LW') Left Wing
+    option(value='RW',selected=position=='RW') Right Wing
+    option(value='LD',selected=position=='LD') Left Defense
+    option(value='RD',selected=position=='RD') Right Defense
+    option(value='FWD',selected=position=='FWD') Forwards (C/LW/RW)
+    option(value='DEF',selected=position=='DEF') Defense (LD/RD)
+
+block content
+  if full_stats === true
+    - const gametype_url = `window.location.href="/player_stats?team=${team}&full_stats=${query.full_stats}&season_id=${season_id}&game_type="+this.value;`;
+    if query.full_stats === 'skater'
+      h1 📊 Full Skater Statistics
+      - const dropdown_url = `window.location.href="/player_stats?game_type=${game_type}&full_stats=${query.full_stats}&season_id="+this.value;`;
+      +dropdown_season(dropdown_url)
+      +dropdown_gametype(gametype_url)
+      +dropdown_daterange()
+      +dropdown_team()
+      +dropdown_position()
+      br
+      +skater_stats_table(stats,['POS'],'playername')
+    else if query.full_stats === 'goalie'
+      h1 Full Goaltending Statistics
+      - const dropdown_url = `window.location.href="/player_stats?game_type=${game_type}&full_stats=${query.full_stats}&season_id="+this.value;`;
+      +dropdown_season(dropdown_url)
+      +dropdown_gametype(gametype_url)
+      +dropdown_daterange()
+      +dropdown_team()
+      br
+      +goalie_stats_table(stats,null,'playername')
+    +stat_legend_container()
+  else
+    h1 📊 Player Statistic Leaders
+    +dropdown_season(`window.location.href="/player_stats?game_type=${game_type}&season_id="+this.value;`)
+    span  Game Type:
+      select(name='game_type',onchange=`window.location.href="/player_stats?season_id=${season_id}&game_type="+this.value;`)
+        for type in game_types
+          option(value=type,selected=type==game_type)=type
+    br
+    if min_games > 0
+      p.white Minimum #{min_games} Games Played
+    table.page_width
+      tr
+        for category, cat_name in stats
+          td.valign_top
+            h2=cat_name
+            p
+              a.yellow(href=full_stat_links[cat_name])=full_stat_text[cat_name]
+            table.page_width.colorized
+              for stat_cat, stat_cat_name in category
+                tr
+                  th(colspan=3)=stat_cat_name
+                tr
+                  if stat_cat.data.length === 0
+                    td.center.large(colspan=3) No Leaders
+                  else
+                    for player_stats, rank in stat_cat.data
+                      - const first_stat = parseInt(rank) === 0;
+                      tr
+                        td #{parseInt(rank)+1}.
+                        td
+                          if first_stat
+                            span ⭐️
+                            +player_team(player_stats)
+                            span.medium.bold
+                              +playerstats_name(player_stats)
+                          else
+                            +player_team(player_stats)
+                            +playerstats_name(player_stats)
+                        - var stat_class = first_stat ? 'center large bold' : 'center';
+                        if stat_cat.percent === true
+                          td(class=stat_class)=pretty_percent(player_stats[stat_cat.datakey])
+                        else if stat_cat.gaa === true
+                          td(class=stat_class)=pretty_gaa(player_stats[stat_cat.datakey])
+                        else if stat_cat.plusminus === true
+                          td(class=stat_class)=pretty_plusminus(player_stats[stat_cat.datakey])
+                        else
+                          td(class=stat_class)=player_stats[stat_cat.datakey]

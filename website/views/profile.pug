@@ -1,0 +1,114 @@
+extends layout
+include _visual
+
+mixin user_setting_field(name, value, description)
+    tr
+        td.right=description
+        td
+            input(type='text',name=name,value=value)
+
+mixin user_gamertag_field(gamertags, clientPlatform, description)
+    tr
+        td.right=description
+        td
+            - const str = gamertags ? (gamertags[clientPlatform] ? gamertags[clientPlatform] : '') : '';
+            input(type='text',name=clientPlatform,value=str)
+
+mixin user_streaming_row(label,field)
+    tr
+        td.right=label
+        td.center
+            input(type='text',name=field,value=user.streaming?user.streaming[field]:'')
+
+mixin user_availability_row(field)
+    tr
+        td.center=field
+        for time in config.availability.times
+            td.center
+                - const input_field = `${field}.${time}`;
+                input(type='checkbox',name=input_field,checked=user.availability&&user.availability[input_field])
+                span=time
+
+mixin user_availability()
+    table.page_width.colorized
+        for day in config.availability.days
+            +user_availability_row(day)
+
+block content
+    if user.application && user.application.season_id == season_id
+        form(action='/profile',method='POST')
+            input(type='hidden',name='_id',value=user._id)
+            table.page_width.colorized
+                tr
+                    th(colspan=2) Player Details
+                tr
+                    td.right Discord:
+                    td
+                        +discord_avatar(user)
+                        +discord_username(user)
+                +user_gamertag_field(user.gamertags, 'xbsx', 'XBOX LIVE Gamertag:')
+                +user_gamertag_field(user.gamertags, 'ps5', 'PSN Gamertag:')
+            br
+            table.page_width.colorized
+                tr 
+                    th(colspan=2) Streaming
+                +user_streaming_row('Twitch URL:','twitch')
+                +user_streaming_row('YouTube URL:','youtube')
+            br
+            table.page_width.colorized
+                tr
+                    th Positions
+                tr
+                    td You can set the hockey positions you want to be eligible to play for here.
+                tr
+                    td.center
+                        +hockey_positions()
+            if config.availability.enabled
+                br
+                table.page_width.colorized
+                    tr
+                        th(colspan=2) Availability
+                    tr
+                        td(colspan=2) Setting availability is important for teams to set lineups for games. Mark all of the game times you are available for here. 
+                            | Team managers can then review your availability when setting lineups! Keep this up to date.
+                    tr 
+                        td(colspan=2)
+                            +user_availability()
+            br
+            table.page_width.colorized
+                tr
+                    th
+                        button(type='submit') Update Profile
+    else
+        if fa_offers
+            h2 Before you can accept your Free Agent Offer, you must fill out an application:
+        form(action='/profile',method='POST')
+            input(type='hidden',name='application',value='1')
+            table.page_width.colorized
+                tr
+                    th(colspan=2) Season Signup for #{user.auth.username}
+                if !fa_offers
+                    tr
+                        td(colspan=2) To be eligible to play, you must fill out and submit this application.
+                +user_gamertag_field(user.gamertags, 'xbsx', 'XBOX LIVE Gamertag:')
+                +user_gamertag_field(user.gamertags, 'ps5', 'PSN Gamertag:')
+                tr
+                    td Hockey Positions (check all that apply)
+                    td
+                        +hockey_positions()
+                tr  
+                    td Stick Handedness:
+                    td
+                        select(name='handedness')
+                            for hand in handedness
+                                option(value=hand)=hand
+                tr
+                    th(colspan=2) Availability
+                tr
+                    td(colspan=2)
+                        +user_availability()
+                tr
+                    th(colspan=2)
+                        button(type='submit') Submit Application
+
+            

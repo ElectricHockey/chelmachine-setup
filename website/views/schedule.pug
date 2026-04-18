@@ -1,0 +1,109 @@
+extends layout
+include _visual
+
+mixin game_result_bare(wteam,lteam,wscore,lscore)
+    strong
+        +team_logo(wteam,'logo_small')
+        span=wscore
+        span ➖
+        span=lscore
+        +team_logo(lteam,'logo_small')
+
+mixin game_result(game,wteam,lteam,wscore,lscore)
+    if game.game_stats
+        a(href=`/game?_id=${game._id}`)
+            +game_result_bare(wteam,lteam,wscore,lscore)
+    else
+        +game_result_bare(wteam,lteam,wscore,lscore)
+
+block content 
+    h1 📅 #{team_schedule?team.team_name:'League'} Schedule
+    p Schedule View: 
+        select(name='view',onChange=`window.location.href="/schedule?${team?'_id='+team._id+'&':''}view="+this.value;`)
+            for v in views
+                option(value=v,selected=query.view==v)=v
+    br
+    if view == 'week'
+        table.page_width.colorized
+            tr
+                td
+                    a(href=team_schedule?`/schedule?_id=${team._id}&week_start=${previous_week.getTime()/1000}`:`/schedule?week_start=${previous_week.getTime()/1000}`) Previous Week
+        p.page_width #{pretty_date(week_start)} to #{pretty_date(week_end)}
+        table.page_width.colorized
+            tr
+                td
+                    a(href=team_schedule?`/schedule?_id=${team._id}&week_start=${next_week.getTime()/1000}`:`/schedule?week_start=${next_week.getTime()/1000}`) Next Week
+    else if view == 'season'
+        p Season:
+            select(onChange=`window.location.href="/schedule?view=season&season_id="+this.value;`)
+                for season in seasons
+                    option(value=season.season_id,selected=season_id==season.season_id)=season.label
+    if games.length > 0
+        - 
+            const initial_date = view == 'week' ? week_start : games[0].date;
+            const end_date = view == 'week' ? week_end : games[games.length-1].date;
+            let current_date = initial_date;
+            const duration = 86400000;
+            const rruns = (end_date.getTime() - current_date.getTime()) / duration;
+            let runs = Math.ceil(Math.min(100,rruns));
+        while runs > 0
+            -
+                --runs;
+                const aft_date = new Date(current_date.getTime() + duration);
+                const day_games = games.filter((g)=>g.date>=current_date&&g.date<aft_date);
+            if day_games.length
+                br
+                h2=pretty_date(current_date,true)
+                .overflow_x
+                    table.statistics.page_width
+                        tr
+                            th Away
+                            th 🆚
+                            th Home
+                            th Time
+                            th=day_games.find((g)=>g.game_stats)?'Results':'Streaming'
+                            th
+                            th Type
+
+                        for game in day_games
+                            - const teams = [game.away_team,game.home_team];
+                            tr
+                                td.center.nowrap
+                                    a(href=`/team?_id=${game.away_team._id}`)
+                                        +team_logo(game.away_team,'logo_medium')
+                                td.center.nowrap
+                                    .versus 🆚
+                                td.center.nowrap
+                                    a(href=`/team?_id=${game.home_team._id}`)
+                                        +team_logo(game.home_team,'logo_medium')
+                                td.center.nowrap=pretty_time(game.date)
+                                td.center.nowrap
+                                    if game.stats
+                                        if game.game_stats
+                                            -
+                                                const wscore = game.winning_club.gfraw;
+                                                const lscore = game.losing_club.gfraw;
+                                            +game_result(game,game.winning_team,game.losing_team,wscore,lscore)
+                                        else if game.forfeit_draw
+                                            +game_result(game,game.away_team,game.home_team,0,0)
+                                        else if game.forfeit_winner
+                                            +game_result(game,game.winning_team,game.losing_team,1,0)
+                                    else
+                                        for team in teams
+                                            if team.streaming
+                                                for user in team.streaming
+                                                    - const streams = Object.keys(user.streaming).filter((t)=>is_valid_url(user.streaming[t]));
+                                                    if streams.length > 0
+                                                        a(href=`/player?username=${user.auth.username}`)
+                                                            +discord_avatar(user,'logo_small')
+                                                        for stream in streams
+                                                            a(href=user.streaming[streams])=user.streaming[streams]
+                                                            br
+                                td.center
+                                    if game.stats
+                                        if !game.game_stats
+                                            strong FF
+                                        else if game.overtime
+                                            strong OT
+                                td.center=game.game_type
+            - current_date = new Date(aft_date.toLocaleDateString());

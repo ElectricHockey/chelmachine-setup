@@ -1,0 +1,8 @@
+extends layout
+
+block content
+  if rulebook
+    i Last Updated #{pretty_date(rulebook.insert_date)}
+    .rulebook !{rulebookmd}
+  else
+    p No Rulebook has been added yet.

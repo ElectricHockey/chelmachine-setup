@@ -1,0 +1,83 @@
+extends layout
+include _visual
+include _newstats
+
+mixin owner_row(ownership, field)
+  if ownership[field]
+    tr
+      td.center.half_page_width=pretty_owner_position(field)
+      td
+        - const fuser = team.users.filter((u)=>u.auth.username===ownership[field].discordname)[0];
+        if fuser
+          +discord_avatar_small(fuser)
+          +discord_username(fuser)
+        else
+          a(href=`/player?username=${ownership[field].discordname}`)=ownership[field].discordname
+
+block content
+  table.page_width.colorized
+    tr
+      th(colspan=2) Team Summary
+    tr
+      td.right Team:
+      td=team.team_name
+    if team.team_abbr
+      tr
+        td.right Logo:
+        td.half_page_width
+          +team_logo(team, 'logo_medium')
+    if team.conference
+      tr
+        td.right Conference:
+        td=team.conference
+    if team.division
+      tr
+        td.right Division:
+        td=team.division
+    tr
+      td.right Schedule:
+      td
+        a.yellow(href=`/schedule?_id=${team._id}`) Team Schedule
+  if team.ownership
+    br
+    table.page_width.colorized
+      tr
+        th(colspan=2) Front Office
+      +owner_row(team.ownership, 'owner')
+      +owner_row(team.ownership, 'gm')
+      +owner_row(team.ownership, 'agm')
+      +owner_row(team.ownership, 'agm2')
+  if team.roster
+    br
+    div.overflow_x.page_width
+      table.colorized
+        tr
+          th(colspan=4).left Current Roster
+        - let p = 0;
+        for username in team.roster
+          - const ruser = team.users.filter((u)=>u.auth.username===username)[0];
+          if p++ % 4 === 0
+            tr
+          td
+            +discord_avatar_small(ruser)
+            +discord_username(ruser)
+  //- if team.roster_old
+  //-   br
+  //-   table.page_width.colorized
+  //-     tr
+  //-       th(colspan=4) Legacy Roster
+  //-     tr
+  //-       td(colspan=4) We are currently migrating rosters from gamertags to discord usernames, so in the meantime here's the legacy roster!
+  //-     - let p = 0;
+  //-     for player in team.roster_old
+  //-       if p++ % 4 === 0
+  //-         tr
+  //-       td=player
+  br
+  div.overflow_x
+    h2 Regular Season Statistics
+    br
+    +skater_stats_table(skater_stats,['POS','TEAM'])
+    br
+    +goalie_stats_table(goalie_stats,['TEAM'])
+  +stat_legend_container()
