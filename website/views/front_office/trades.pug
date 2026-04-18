@@ -1,0 +1,114 @@
+extends layout
+include ../_visual
+
+mixin submit_offer_teams()
+    table.page_width.colorized
+        tr
+            th TEAM
+            th Start Trade
+        for t in teams
+            if !t._id.equals(team._id)
+                tr
+                    td
+                        +team_logo(t, 'logo_medium')
+                    td.center
+                        a(href=`/front_office/trades?offer_team=${t._id}&idx=${query.idx}`) Trade with #{t.team_name}
+
+mixin trade_player_dropdown(trade_team, field)
+    td.center
+        select(name=field)
+            option(value='') NONE
+            if trade_team.roster
+                for player in trade_team.roster
+                    - let valid_player = true;
+                    - if (trade_team.ownership) { for (o in trade_team.ownership) { if (trade_team.ownership[o].discordname===player) { valid_player = false; break; } } }
+                    if valid_player
+                        - const user = users.filter((u)=>u.auth.username===player)[0];
+                        if user && user.membership
+                            option(value=user.auth.username)=user.membership.displayName
+
+mixin trade_player_row(my_team, offer_team)
+    tr
+        +trade_player_dropdown(my_team,'author_players')
+        +trade_player_dropdown(offer_team,'offer_players')
+
+block owner_link_content
+    if active_trade_offer
+        p.red.center Trade Offer Submitted
+    else if accepted_trade_offer
+        p.red.center Trade Offer Accepted
+    else
+        p Here you can submit trades to other teams and review trades sent to you. 
+            | You can only submit one trade at a time and can only accept trades if you don't have an offer active.
+            | This is to ensure roster coherency. Trade offers expire after 24 Hours.
+        if query.offer_team
+            - const offer_team = teams.find((t)=>t._id.equals(query.offer_team));
+            - const my_team = teams.find((t)=>t._id.equals(team._id));
+            form(action=`/front_office/trades?idx=${query.idx}`,method='POST')
+                input(type='hidden',name='author_team',value=team._id)
+                input(type='hidden',name='offer_team',value=query.offer_team)
+                table.page_width.colorized 
+                    tr
+                        th(colspan=2) Trade With #{offer_team.team_name}
+                    tr
+                        th You Offer
+                        th You Receive
+                    +trade_player_row(my_team, offer_team)
+                    +trade_player_row(my_team, offer_team)
+                    +trade_player_row(my_team, offer_team)
+                    tr
+                        th(colspan=2)
+                            button(type='submit') Submit Offer
+                br
+        else
+            table.page_width
+                tr
+                    th Review Offers
+                tr
+                    td
+                        if received_trade_offers
+                            for offer in received_trade_offers
+                                - const our_team = teams.find((t)=>t._id.equals(team._id));
+                                - const offer_team = teams.find((t)=>t._id.equals(offer.author_team));
+                                table.page_width.colorized
+                                    tr
+                                        th(colspan=2) Offer From #{offer_team.team_name}
+                                    tr
+                                        td.center Expires
+                                        td.center.half_page_width=pretty_date(offer.expires)
+                                    tr
+                                        th #{our_team.team_name.toUpperCase()} RECEIVES
+                                        th #{offer_team.team_name.toUpperCase()} RECEIVES
+                                    each i in [0,1,2]
+                                      tr
+                                        td.center
+                                            - let user = offer.users.find((u)=>u.auth.username==offer.author_players[i]);
+                                            if user
+                                                +discord_avatar(user)
+                                                +discord_username(user)
+                                        td.center
+                                            - user = offer.users.find((u)=>u.auth.username==offer.offer_players[i]);
+                                            if user
+                                                +discord_avatar(user)
+                                                +discord_username(user)
+                                    tr
+                                        th(colspan=2)
+                                            form(action=`/front_office/trades?idx=${query.idx}`,method='POST')
+                                                input(type='hidden',name='accept',value='1')
+                                                input(type='hidden',name='offer_id',value=offer._id)
+                                                button(type='submit') Accept #{offer_team.team_name.toUpperCase()} Offer
+                                    tr
+                                        th(colspan=2)
+                                            form(action=`/front_office/trades?idx=${query.idx}`,method='POST')
+                                                input(type='hidden',name='accept',value=false)
+                                                input(type='hidden',name='offer_id',value=offer._id)
+                                                button(type='submit') Reject #{offer_team.team_name.toUpperCase()} Offer
+                                br
+                        else
+                            p.center.red NO OFFERS FOR REVIEW
+                tr
+                    th Submit Offer
+                tr
+                    td
+                        +submit_offer_teams()
+        

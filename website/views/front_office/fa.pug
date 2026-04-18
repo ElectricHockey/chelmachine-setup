@@ -1,0 +1,47 @@
+extends layout
+include ../_visual
+
+mixin array_td(arr)
+    if arr
+        td.center=arr.length
+    else
+        td.center 0
+
+block owner_link_content
+    p.page_width You can tender an offer sheet to a Free Agent through this page.
+    - let roster_size = (team.roster && team.roster.length) + (free_agents && free_agents.length);
+    if roster_size >= config.roster_max
+        table.page_width.colorized
+            tr
+                th(colspan=2)
+                    span.red ROSTER AT MAX
+            tr
+                th Source
+                th Count
+            tr
+                td Active Roster
+                +array_td(team.roster)
+            tr
+                td FA Offers
+                +array_td(free_agents)
+        br
+    else
+        form(action=`/front_office/fa?idx=${query.idx}`,method='POST')
+            input(type='hidden',name='_id',value=team._id)
+            table.page_width.colorized
+                tr
+                    th Free Agent Pool
+                tr
+                    td.center
+                        select(name='user_id')
+                            option NONE
+                            for user in users
+                                if user.membership
+                                    option(value=user.user_id)=user.membership.displayName
+                                else
+                                    option(value=user.user_id)=user.auth.username
+                tr
+                    th
+                        button(type='submit') Submit Tender
+            br
+                

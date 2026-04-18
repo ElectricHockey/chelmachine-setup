@@ -1,0 +1,26 @@
+extends layout
+
+block owner_link_content
+    p You can upload jersey screenshots through this page. Ensure the club jersey's follow the rulebook!
+    form(action=`/front_office/jersey?idx=${query.idx}`,method='POST',enctype='multipart/form-data')
+        table.page_width.colorized
+            tr
+                th Side
+                th Current Jersey Image
+                th New Image
+            for side in sides
+                tr
+                    td.center=side
+                    td.center
+                        if team.jerseys && team.jerseys[side]
+                            a(href=team.jerseys[side],target="_blank")
+                                img.logo_small(src=team.jerseys[side],alt=url)
+                        else
+                            span No Jersey Image
+                    td.center
+                        input(type='file',name=side,accept='image/png image/jpeg')
+            tr
+                th(colspan=3)
+                    button(type='submit') Submit New Jersey Images      
+    br
+    

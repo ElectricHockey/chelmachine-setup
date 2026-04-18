@@ -1,0 +1,138 @@
+extends layout
+include ../_visual
+
+mixin player_position_cell(fullname)
+    td.right
+            +hockey_position_icon(fullname)
+            span :
+
+mixin player_position_row(lineup, fullname)
+    tr
+        +player_position_cell(fullname)
+        td.center
+            select(name=fullname)
+                option(value='') NONE
+                if team.roster
+                    for p in team.roster
+                        - const user = users.find((u) => u.auth.username===p);
+                        -
+                            const u = (user) => {
+                                if (user.membership && user.membership.nickname) {
+                                    return user.membership.nickname;
+                                }
+                                return user.auth.username;
+                            };
+                        - const positions = user ? (user.positions ? user.positions : (user.application ? user.application.positions : [])) : [];
+                        if positions.includes(fullname)
+                            option(value=user.auth.username,selected=lineup&&lineup[fullname]===user.auth.username)=u(user)
+
+mixin player_position_row_read(lineup, fullname, initial)
+    tr
+        +player_position_cell(fullname, initial)
+        td
+            -
+                const u = (username) => {
+                    const user = users.find((u)=>u.auth.username==username);
+                    if (user && user.membership && user.membership.nickname) {
+                        return user.membership.nickname;
+                    }
+                    return username;
+                };
+            a(href=`/player?username=${lineup[fullname]}`)=u(lineup[fullname])
+
+
+block owner_link_content
+    p.page_width You can set game lineups for the next week through this page. Players on the line will get a DM notification upon submission.
+        span.red ALL POSITIONS MUST BE ASSIGNED FOR LINEUP TO BE SET.
+    if game
+        table.page_width.colorized
+            tr
+                th(colspan=3) Availability for #{pretty_date(game.date)}
+            if available_players
+                tr
+                    th User
+                    th Position(s)
+                    th Available?
+                for avail, player in available_players
+                    - const user = users.find((u)=>u.auth&&u.auth.username===player);
+                    tr
+                        td.half_page_width
+                            +discord_avatar(user)
+                            -
+                                const u = (user) => {
+                                    if (user.membership && user.membership.nickname) {
+                                        return user.membership.nickname;
+                                    }
+                                    return user.auth.username;
+                                };
+                            span=u(user)
+                        td.center
+                            - const positions = (user.positions ? user.positions : (user.application ? user.application.positions : []));
+                            for p in positions
+                                +hockey_position_icon(p)
+                        if avail
+                            td.center
+                                .green_bg
+                                    span.white YES
+                        else
+                            td.center
+                                .red_bg
+                                    span.white NO
+            else
+                tr
+                    td(colspan=3).center No Availability Set. Ask your players to update their availability in their profile!
+        br
+        - const lineup = game.lineup && game.lineup[team._id] ? game.lineup[team._id] : null;
+        form(action=`/front_office/lineups?game_id=${game._id}&idx=${query.idx}`,method='POST')
+            table.page_width.colorized
+                tr
+                    th(colspan=2) Set Lineup
+                tr
+                    td.right Date:
+                    td.center=pretty_date(game.date)
+                tr
+                    td.right Away:
+                    td.center=game.away
+                tr
+                    td.right Home:
+                    td.center=game.home
+                +player_position_row(lineup, 'center')
+                +player_position_row(lineup, 'left_wing')
+                +player_position_row(lineup, 'right_wing')
+                +player_position_row(lineup, 'left_defense')
+                +player_position_row(lineup, 'right_defense')
+                +player_position_row(lineup, 'goalie')
+                tr
+                    th(colspan=2)
+                        button(type='submit') Set Lineup
+    else
+        table.page_width.colorized
+            tr
+                th(colspan=5) Upcoming Games
+            tr
+                th Date
+                th Away
+                th Home
+                th Lineup
+                th Manage
+            for game in games
+                tr
+                    td=pretty_date(game.date)
+                    td.center=game.away
+                    td.center=game.home
+                    if game.lineup && game.lineup[team._id]
+                        - const lineup = game.lineup[team._id];
+                        td
+                            table.page_width
+                                +player_position_row_read(lineup, 'center', 'C')
+                                +player_position_row_read(lineup, 'left_wing', 'LW')
+                                +player_position_row_read(lineup, 'right_wing', 'RW')
+                                +player_position_row_read(lineup, 'left_defense', 'LD')
+                                +player_position_row_read(lineup, 'right_defense', 'RD')
+                                +player_position_row_read(lineup, 'goalie', 'G')
+                    else
+                        td.center
+                            span.purple NONE
+                    td.center.red
+                        a(href=`/front_office/lineups?game_id=${game._id}&idx=${query.idx}`) MANAGE LINEUP
+    br

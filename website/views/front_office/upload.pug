@@ -1,0 +1,91 @@
+extends layout
+
+block owner_link_content
+    p You can upload screenshots through this page. While we use an advanced API integration system, having 
+        | screenshots is valuable for secondary confirmation as well as linking in multiple games in the events of lagouts.
+    if config.images.player_summary && config.images.box_score
+        p EXAMPLE SCREEN SHOTS:
+        table.page_width
+            tr
+                td Player Summary
+                td Box Score
+            tr
+                td
+                    img(src=config.images.player_summary.url,alt=config.images.player_summary.alt,width=640,height=360)
+                td
+                    img(src=config.images.box_score.url,alt=config.images.box_score.alt,width=640,height=360)
+    if !query.game_id
+        table.page_width.colorized
+            tr
+                th(colspan=5) Upload Stats for Games
+            tr
+                th Date
+                th Away
+                th Home
+                th Submitted
+                th Upload
+            for game in upload_games
+                - const submitted_screenshots = game.files && game.files[team._id];
+                tr
+                    td.half_page_width=pretty_date(game.date)
+                    td
+                        span=game.away_team.team_name
+                    td
+                        span=game.home_team.team_name
+                    td.center
+                        if !submitted_screenshots
+                            span.red No
+                        else
+                            span.green Yes
+                    td.center
+                        a(href=`/front_office/upload?game_id=${game._id}&idx=${query.idx}`)=submitted_screenshots?'Reupload':'Upload'
+        br
+    else
+        form(action=`/front_office/upload?idx=${query.idx}`,method='POST',enctype='multipart/form-data')
+            input(type='hidden',name='game_id',value=game._id)
+            table.page_width.colorized
+                tr
+                    th(colspan=2) Upload Stats for #{game.away_team.team_name} at #{game.home_team.team_name}
+                tr
+                    td.right Date:
+                    td.center=pretty_date(game.date)
+                tr
+                    td.right Box Score:
+                    td
+                        table.page_width.colorized
+                            tr
+                                th Side
+                                th Team
+                                th 1st
+                                th 2nd
+                                th 3rd
+                                th OT
+                                th SO
+                                th TOT
+                            each i in ['away','home']
+                                tr
+                                    td.center=i
+                                    td.center
+                                        span=game[i]
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_1p`) 
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_2p`)
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_3p`)
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_ot`)
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_so`)
+                                    td.center
+                                        input(type='text',size='2',name=`${i}_tot`)
+                each i in [0,1,2,3,4,5,6,7,8,9]
+                    tr
+                        td.right Upload Image #{i+1}:
+                        td.center
+                            input(type='file',name='images',accept='image/png image/jpeg')
+                tr
+                    th(colspan=2)
+                        button(type='Submit') Upload
+            br
+

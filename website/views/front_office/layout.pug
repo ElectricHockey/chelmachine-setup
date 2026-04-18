@@ -1,0 +1,124 @@
+extends ../layout
+include ../_visual
+
+mixin owner_row(team,field)
+    tr
+        if team.ownership[field]
+            - const user = team.users.filter((u)=>team.ownership[field].discordname===u.auth.username)[0];
+            td
+                +discord_avatar_small(user)
+                +discord_username(user)
+        else
+            td.center NONE
+        td.center=pretty_owner_position(field)
+
+mixin owner_link(label, section, nosplit)
+    if !nosplit
+        span |
+    if params.section === section
+        span.purple=label
+    else
+        a(href=`/front_office/${section}?idx=${query.idx}`)=label
+
+mixin trade_player_td(username)
+    - const user = users.filter((u)=>u.auth.username===username)[0];
+    td
+        if user
+            +discord_avatar_small(user)
+            +discord_username(user)
+        else
+            a(href=`/player?username=${username}`)=username
+
+block content
+    if session.front_office_teams.length > 0
+        p.page_width Select Team:
+            select(name='team',onchange='window.location.href="/front_office/index?idx="+this.value;')
+                for team, idx in session.front_office_teams
+                    option(value=idx,selected=idx==query.idx)=team.team_name
+    if accepted_trade_offer
+        h1.purple Your team has accepted a trade and is pending Transactions review.
+    else if received_trade_offers
+        h1.purple You have trade offers to review in the TRADES panel!
+    p.page_width This is the Front Office Panel for the #{team.team_name}, restricted to Front Office personnel.
+    table.page_width
+        tr
+            td
+                table.page_width.colorized
+                    tr
+                        th(colspan=2)=team.team_name
+                    tr
+                        td(colspan=2).center #{team.conference} Conference, #{team.division} Division
+                    tr
+                        td(colspan=2).center
+                            a(href=`/team?_id=${team._id}`) Team Locker Room
+                br
+                table.page_width.colorized
+                    tr
+                        th(colspan=2) FRONT OFFICE
+                    tr
+                        th User
+                        th Position
+                    +owner_row(team,'owner')
+                    +owner_row(team,'gm')
+                    +owner_row(team,'agm')
+                    +owner_row(team,'agm2')
+                if free_agents && free_agents.length
+                    br
+                    table.page_width.colorized
+                        tr
+                            th(colspan=2)
+                                span.purple PENDING FA OFFERS
+                        tr
+                            th Player
+                            th Expires
+                        for fa in free_agents
+                            tr
+                                td
+                                    +discord_avatar_small(fa.user)
+                                    +discord_username(fa.user)
+                                td.center=pretty_date(fa.expires)
+                if active_trade_offer
+                    br
+                    - const offer_team = teams.find((t)=>t._id.equals(active_trade_offer.offer_team));
+                    table.page_width.colorized
+                        tr
+                            th(colspan=2)
+                                span.purple CURRENT TRADE OFFER
+                        tr
+                            td.half_page_width.center Expires
+                            td.center=pretty_date(active_trade_offer.expires)
+                        tr
+                            td.center Status
+                            td.center
+                                if active_trade_offer.accepted
+                                    span.purple ACCEPTED, AWAITING APPROVAL
+                                else 
+                                    span PENDING #{offer_team.team_name} RESPONSE
+                        tr
+                            th #{team.team_name} Offer
+                            th #{offer_team.team_name} Offer
+                        each i in [0,1,2]
+                            tr
+                                +trade_player_td(active_trade_offer.author_players[i])
+                                +trade_player_td(active_trade_offer.offer_players[i])
+            td.half_page_width.center
+                +team_logo(team,'logo_large')
+        tr
+            td(colspan=2)
+                table.page_width
+                    tr
+                        td.owner_links
+                            if team_owner_user_id === user.id
+                                +owner_link('FRONT OFFICE','fo',true)
+                            if config.availability.enabled
+                                +owner_link('GAME LINEUPS','lineups',!(team_owner_user_id===user.id))
+                            +owner_link('RELEASE PLAYER','release')
+                            +owner_link('SIGN FREE AGENT','fa')
+                            +owner_link('TEAM ROSTER','index')
+                            +owner_link('TRADE BLOCK','block')
+                            +owner_link('TRADES','trades')
+                            +owner_link('UPLOAD SCREENSHOTS','upload')
+                            +owner_link('UPLOAD JERSEYS', 'jersey')
+                    tr
+                        td.owner_link_content
+                            block owner_link_content

@@ -1,0 +1,33 @@
+extends layout
+
+mixin gm_row(label, field)
+    tr
+        td.center=label
+        td.center
+            select(name=field)
+                option(value='') NONE
+                for c in candidates.filter((c)=>c.membership)
+                    - const player = c.auth.username;
+                    if player !== team.ownership.owner.playername
+                        - const s = team.ownership && team.ownership[field] && team.ownership[field].discordname === player;
+                        option(value=c.user_id,selected=s)=c.membership.displayName
+                else
+                    span NO ONE
+
+block owner_link_content
+    p.page_width You can promote/demote GMs/AGMs through this page
+    if fo_request
+        p.center.red Front Office Change Request Submitted.
+    else
+        form(action=`/front_office/fo?idx=${query.idx}`,method='POST')
+            input(type='hidden',name='_id',value=team._id)
+            table.page_width.colorized
+                tr
+                    th Position
+                    th Player
+                +gm_row('General Manager','gm')
+                +gm_row('Assistant General Manager','agm')
+                +gm_row('Assistant General Manager','agm2')
+                tr
+                    th(colspan=2)
+                        button(type='submit') Submit Front Office Change Request

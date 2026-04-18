@@ -1,0 +1,43 @@
+extends layout
+include ../_visual
+
+block owner_link_content
+    p You can use this form to submit release requests. All transactions are PENDING until approved by transactions team.
+    form(action=`/front_office/release?idx=${query.idx}`,method='POST')
+        table.page_width.colorized
+            tr
+                th(colspan=2) Player Release Form
+            tr
+                th Player
+                th Release?
+            for p in team.roster
+                - const user = team.users.filter((u)=>u.auth.username===p)[0];
+                tr
+                    td
+                        if user
+                            +discord_avatar_small(user)
+                            +discord_username(user)
+                        else
+                            span=p
+                    td.center
+                        if team.release_block && team.release_block.includes(p)
+                            span.red RELEASE PENDING
+                        else if team.trade_block && team.trade_block.includes(p)
+                            span.red ON TRADE BLOCK
+                        else if active_trade_offer && active_trade_offer.author_players.includes(p)
+                            span.red IN TRADE OFFER
+                        else if accepted_trade_offer && accepted_trade_offer.offer_players.includes(p)
+                            span.red IN ACCEPTED TRADE OFFER
+                        else
+                            - let allow_release = true;
+                            if team.ownership
+                                for owner in team.ownership
+                                    if owner.discordname === p
+                                        - allow_release = false;
+                            if allow_release
+                                input(type='checkbox',name=p)
+                            else
+                                span.red FRONT OFFICE
+            tr
+                th(colspan=2)
+                    button(type='submit') Submit Release Requests

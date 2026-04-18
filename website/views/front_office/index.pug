@@ -1,0 +1,35 @@
+extends layout
+include ../_visual
+
+block owner_link_content
+    table.page_width.colorized
+        tr
+            th(colspan=2) TEAM ROSTER (#{team.roster.length} / #{config.roster_max})
+        tr
+            th PLAYER
+            th STATUS
+        if team.roster
+            for p in team.roster
+                - const user = team.users.filter((u)=>u.auth.username===p)[0];
+                tr
+                    td
+                        if user
+                            +discord_avatar_small(user)
+                            +discord_username(user)
+                        else
+                            span=p
+                    td.center
+                        if team.trade_block && team.trade_block.includes(p)
+                            span.red ON TRADE BLOCK
+                        else if team.release_block && team.release_block.includes(p)
+                            span.red RELEASE PENDING
+                        else if active_trade_offer && active_trade_offer.author_players.includes(p)
+                            span.red IN TRADE OFFER
+                        else if accepted_trade_offer && accepted_trade_offer.offer_players.includes(p)
+                            span.red IN ACCEPTED TRADE OFFER
+                        else
+                            span ACTIVE
+        else
+            tr
+                td.center NONE
+    br
