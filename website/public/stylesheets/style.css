@@ -1,0 +1,209 @@
+.right { text-align: right; }
+.left { text-align: left; }
+.center { text-align: center; }
+.center_img {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+html { width: 100%; height: 100%; padding: 0; margin: 0; }
+body {
+  padding: 50px;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+.header_title {
+  display: block;
+}
+.max_width {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.page_width {
+  width: 95%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.page_top { margin-top: 20px; }
+.half_page_width {
+  width: 50%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.quarter_page_width {
+  width: 25%;
+  margin-left: auto;
+  margin-right: auto;
+}
+.full_width {
+  width: 100%;
+}
+.discord_logo_tiny {
+  width: 31px;
+  height: 23.5px;
+  min-width: 31px;
+  min-height: 23.5px;
+}
+.discord_logo_login {
+  width: 50%;
+  height: 50%;
+}
+.nowrap {white-space: nowrap;}
+.arrow {
+  border: solid;
+  border-width: 0 3px 3px 0;
+  display: inline-block;
+  padding: 3px;
+}
+.tx_up {
+  transform: rotate(-135deg);
+  -webkit-transform: rotate(-135deg);
+}
+.tx_down {
+  transform: rotate(45deg);
+  -webkit-transform: rotate(45deg);
+}
+.clickable {cursor: pointer;}
+.position_circle {
+  height: 25px;
+  width: 25px;
+  background-color: fuchsia;
+  border-radius: 50%;
+  display: inline-block;
+  text-align: center;
+  font-weight: bold;
+  color: white;
+}
+.position_center { background-color: red; }
+.position_left_wing { background-color: green; }
+.position_right_wing { background-color: blue; }
+.position_left_defense { background-color: teal; }
+.position_right_defense { background-color: yellow; color: black; }
+.position_goalie { background-color: purple; } 
+.owner_links {width: 100%;}
+.owner_link_content {
+  width: 100%;
+}
+.screenshot {
+  width: 640px;
+  height: 360px;
+}
+.round { border-radius: 50%; }
+.menu_icon { width: 35px; }
+.menu_icon div {
+  width: 35px;
+  height: 5px;
+  margin: 6px 0;
+}
+.menu_logo { width: 35px; height: 35px; }
+.float_left { float: left; }
+.overflow_x { overflow-x: auto; }
+
+.colorized th, .colorized td { border-radius: 5px; }
+.playoff_series {
+  background-color: black;
+  border-radius: 5px;
+  padding: 5px;
+  margin: 5px;
+}
+.playoff_round {
+  text-align: center;
+  clear: left;
+  background-color: #ce9a00;
+  border-radius: 5px;
+  padding: 5px;
+  margin: 5px;
+}
+.playoff_score {
+  background-color: white;
+  border-radius: 5px;
+  padding: 5px;
+  margin: 5px;
+  vertical-align: bottom;
+  display: inline-block;
+}
+.playoff_winner {
+  background-color: #FFAC33;
+  display: inline-block;
+  border-radius: 5px;
+  padding: 5px;
+  margin: 5px;
+  vertical-align: top;
+}
+.playoff_participant {
+  background-color: #333333;
+  display: inline-block;
+  border-radius: 5px;
+  padding: 5px;
+  margin: 5px;
+  vertical-align: top;
+}
+.black { color: black; }
+.user_links {
+  display: flex;
+}
+.trophy_winner {
+  background-color: white;
+  color: black;
+  border-radius: 5px;
+}
+.statistics {
+  border-collapse: collapse;
+}
+.statistics th,.statistics td {
+  padding: 5px;
+}
+.statistics th {
+  background-color: black;
+  color: white;
+}
+.statistics tr:nth-child(odd) td {
+  background-color: white;
+  color: black;
+}
+.statistics tr:nth-child(even) td {
+  background-color: lightgray;
+  color: black;
+}
+
+.versus {
+  display: inline-block;
+  vertical-align: super;
+}
+
+.logo_large {
+  width: 50%;
+  height: 50%;
+}
+
+ul.legend {
+  text-align: right;
+}
+ul.legend li {
+  display: inline-block;
+  text-align: center;
+  padding: 5px;
+  border-radius: 5px;
+}
+ul.legend li:nth-child(odd) {
+  background-color: white;
+}
+ul.legend li:nth-child(even) {
+  background-color: #CCCCCC;
+}
+
+.admin_team_roster div {
+  display: inline-block;
+  border-radius: 5px;
+}
+
+.admin_team_roster div:nth-child(odd) {
+  background-color: white;
+}
+
+.admin_team_roster div:nth-child(even) {
+  background-color: lightblue;
+}

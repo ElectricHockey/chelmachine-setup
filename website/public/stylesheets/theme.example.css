@@ -1,0 +1,145 @@
+.bold { font-weight: bold;}
+.small {font-size: x-small;}
+.large {font-size: large;}
+
+.border_yellow {border-color: yellow;}
+.border_red {border-color: red;}
+
+.colorized th {
+    background-color: black;
+    color: white;
+}
+
+.colorized tr:nth-child(even) td {
+    background-color: lightgray;
+    color: black;
+}
+
+.colorized tr:nth-child(even) td.active {
+    background-color: lightsteelblue;   
+}
+
+.colorized tr:nth-child(odd) td {
+    background-color: white;
+    color: black;
+}
+
+.colorized tr:nth-child(odd) td.active {
+    background-color: lightblue;
+}
+
+.final_score {
+    font-weight: bold;
+    font-size: xx-large;
+}
+
+.footer a { color: #ce9a00; text-decoration: none; }
+.footer a:hover { color: white; }
+
+.game_score { 
+    color: black;
+    text-decoration: underline;
+    font-weight: bold;
+}
+.game_score:hover { 
+    color: rgb(2, 2, 2);
+    text-decoration: underline;
+}
+
+.header, .menu {
+    width: 100%;
+    padding: 5px;
+    border-bottom-color: black;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+}
+.header { background-color: #333333; }
+.menu { background-color: #555555; }
+
+.header a {
+    color: yellow;
+    text-decoration: none;
+}
+
+.header a:hover {
+    color: white;
+}
+
+.header span, .header a {
+  font-size: x-large;
+}
+
+.logo_tiny {
+    width: 15px;
+    height: 15px;
+}
+.logo_small {
+    width: 50px;
+    height: 50px;
+}
+.logo_medium {
+    width: 100px;
+    height: 100px;
+}
+
+.red { color: red; }
+.red a { color: red; text-decoration: none; }
+.red h1 { color: red; }
+.red th { color: red; }
+a.red, h1.red, h2.red, p.red { color: red; }
+td.red, span.red { color:red; }
+.loss_red { color: rgb(173, 59, 59); }
+
+.green, a.green { color: limegreen; }
+.yellow, a.yellow { color: #ce9a00; }
+.white { color: white; }
+.purple, a.purple, .purple a { color: #FF88FF; }
+.blue { color: skyblue; }
+
+.green_bg { background-color: green; }
+.red_bg { background-color: red; }
+.valign_top {vertical-align: top;}
+.valign_middle {vertical-align: middle;}
+
+.menu_icon div {background-color: #ce9a00;}
+.menu_icon:hover div { background-color: white; }
+
+.owner_links {
+    background-color: #333333;
+    border-color: black;
+    border-width: 2px;
+    border-style: solid;
+}
+.owner_links a { color: yellow; }
+.owner_links a:hover { color: white; }
+.owner_link_content {
+    background-color: #222222;
+    border-color: black;
+    border-top-width: 0px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-style: solid;
+}
+
+.rulebook a { color: yellow; }
+
+a {
+    color: darkslateblue;
+    text-decoration: none;
+}
+
+body {
+    background-color: #333333;
+    background-repeat: repeat;
+    color: white;
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+}
+
+h1 { color: #ce9a00; }
+
+th.active {
+    background-color: steelblue;
+    color: black;
+}
