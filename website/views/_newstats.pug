@@ -1,0 +1,669 @@
+mixin stat_container(id)
+    div.overflow_x(id=id)
+
+mixin search_container(id)
+    div.overflow_x(id=id)
+
+mixin mingp_container(id)
+    div.overflow_x(id=id)
+
+mixin stat_legend_container()
+    div.overflow_x(id='stat_legend_container')
+
+mixin stats_script(stats,container,fields,filter,label)
+    script.
+        var #{container}_label = "#{label}";
+        var #{container}_initialized = false;
+        var #{container}_order = false;
+        var #{container}_filter = '!{filter}';
+        var #{container}_search_value = '';
+        var #{container}_sort_click;
+        var #{container}_sort_update;
+        var #{container}_mingp_update;
+        var #{container}_search_queued;
+        var #{container}_mingp_queued;
+        var #{container}_mingp_value;
+        var #{container}_search = (str) => {
+            #{container}_search_value = str
+            if (!#{container}_search_queued) {
+                setTimeout(() => {
+                    #{container}_sort_update();
+                    #{container}_search_queued = false;
+                }, 250);
+                #{container}_search_queued = true;
+            }
+        };
+        var #{container}_mingp = (str) => {
+            #{container}_mingp_value = str
+            if (!#{container}_mingp_queued) {
+                setTimeout(() => {
+                    #{container}_mingp_update();
+                    #{container}_mingp_queued = false;
+                }, 250);
+                #{container}_mingp_queued = true;
+            }
+        };
+        var #{container}_last_field;
+        var #{container}_sort = (stats, fields, field, noflip) => {
+            #{container}_last_field = field;
+            var pretty_gaa = (gaa) => {
+                if (typeof gaa === 'number') {
+                    if (isNaN(gaa)) { return ''; }
+                    return `${gaa.toFixed(2)}`;
+                } else {
+                    return `${gaa}`;
+                }
+            };
+            var pretty_percent = (pct) => {
+                if (typeof pct === 'number') {
+                    if (isNaN(pct)) { return '-'; }
+                    return `${pct.toFixed(2)}%`;
+                } else {
+                    return `-`;
+                }
+            };
+            var pretty_rating = (rtg) => rtg.toFixed(2);
+            var pretty_team = (team, hide_team_name) => {
+                if (team) {
+                    let inner = team.team_name;
+                    if (team.logo_url) {
+                        inner = `<img class="logo_small" src="${team.logo_url}" alt="${team.team_name}" /> ${hide_team_name?'':team.team_name}`;
+                    }
+                    return `<div class="left"><a href="/team?_id=${team._id}">${inner}</a></div>`;
+                }
+                return 'Free Agent';
+            };
+            var pretty_diff = (diff) => {
+                const ival = parseInt(diff);
+                if (diff > 0) { 
+                    return `+${ival}`;
+                } else {
+                    return `${ival}`;
+                }
+            };
+            var pretty_record = (r) => `${r.w}-${r.l}-${r.ot}`;
+            var pretty_streak = (s) => {
+                if (s > 0) {
+                    return `W${s}`;
+                } else if (s < 0) {
+                    return `L${-s}`;
+                } else {
+                    return '-';
+                }
+            };
+            var seconds_to_walltime = (time) => {
+                var hours = Math.floor(time / 3600);
+                time = time - hours * 3600;
+                var minutes = Math.floor(time / 60);
+                var seconds = time - minutes * 60;
+                function str_pad_left(string, pad, length) {
+                    return (new Array(length + 1).join(pad) + string).slice(-length);
+                }
+                return str_pad_left(hours, '0', 2) + ':' + str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
+            };
+            var playername = (p) => {
+                if (p.user && p.user.membership) {
+                    return `<a href="/player?username=${encodeURIComponent(p.user.auth.username)}">` +
+                        `<img class="round logo_tiny" src="${p.user.membership.displayAvatarURL}" />` +
+                        `${p.user.membership.displayName}</a>`;
+                } else {
+                    return `<a href="/player?${p.clientPlatform}=${encodeURIComponent(p.playername)}">${p.playername}</a>`;
+                }
+            };
+            var rank = 1;
+            var positions = { 0: 'G', 1: 'RD', 2: 'LD', 3: 'RW', 4: 'LW', 5: 'C' };
+            var nonan = (x) => isNaN(x) ? 0 : x;
+            var player_team = (p) => {
+                var team_id = parseInt(p.club_id);
+                if (p.game.home_club_id == team_id) {
+                    return p.game.home_team;
+                } else if (p.game.away_club_id == team_id) {
+                    return p.game.away_team;
+                }
+            };
+            var player_opp_team = (p) => {
+                var team_id = parseInt(p.club_id);
+                if (p.game.home_club_id == team_id) {
+                    return p.game.away_team;
+                } else if (p.game.away_club_id == team_id) {
+                    return p.game.home_team;
+                }
+            };
+            var game_log_player_result = (p) => {
+                if (p.game.game_stats) {
+                    const pteam = player_team(p);
+                    const club = p.game.game_stats.clubs[pteam.team_id];
+                    if (club) {
+                        const gfraw = parseInt(club.gfraw);
+                        const garaw = parseInt(club.garaw);
+                        const rw = club.result == '1' ? 'W' : 'OTW';
+                        const rl = club.result == '2' ? 'L' : 'OTL';
+                        const rstr = gfraw > garaw ? `<span class="green">${rw}</span>` : `<span class="red">${rl}</span>`;
+                        const inner = `${rstr} ${gfraw} - ${garaw}`;
+                        return `<a href="/game?_id=${p.game._id}">${inner}</a>`;
+                    }
+                }
+                
+                return '-';
+            };
+            var fns = {
+                fo: (p) => parseInt(p.skfow)+parseInt(p.skfol),
+                fopct: (p) => pretty_percent(parseInt(p.skfow)/(parseInt(p.skfow)+parseInt(p.skfol))),
+                ht: (p) => p.hattricks,
+                glsavepct: (p) => pretty_percent(parseFloat(p.glsavepct)),
+                glbrksavepct: (p) => pretty_percent(parseFloat(p.glbrksavepct)),
+                glpensavepct: (p) => pretty_percent(parseFloat(p.glpensavepct)),
+                gaa: (p) => pretty_gaa(parseFloat(p.glgaa)),
+                goalpct: (p) => pretty_percent(parseInt(p.skgoals)/parseInt(p.skshots)),
+                otgoalpct: (p) => pretty_percent(parseInt(p.skshotonnetpct)/100.0),
+                pcpct: (p) => pretty_percent(parseInt(p.skpasses)/parseInt(p.skpassattempts)),
+                playerLevel: (p) => nonan(parseFloat(p.playerLevel)).toFixed(2),
+                playerteam: (p) => pretty_team(p.team),
+                posSorted: (p) => positions[p.posSorted],
+                playername,
+                points: (p) => parseInt(p.skgoals)+parseInt(p.skassists),
+                ratingOffense: (p) => pretty_rating(nonan(parseFloat(p.ratingOffense))),
+                ratingDefense: (p) => pretty_rating(nonan(parseFloat(p.ratingDefense))),
+                ratingTeamplay: (p) => pretty_rating(nonan(parseFloat(p.ratingTeamplay))),
+                skplusmin: (p) => parseInt(p.skplusmin) > 0 ? `+${p.skplusmin}` : p.skplusmin,
+                toi: (p) => seconds_to_walltime(p.toiseconds),
+
+                team_goalpct: (p) => pretty_percent(p.goalpct),
+                team_fopct: (p) => pretty_percent(p.fopct),
+                team_passpct: (p) => pretty_percent(p.passpct),
+                team_gltoiseconds: (p) => seconds_to_walltime(p.gltoiseconds),
+                team_gaa: (p) => pretty_gaa(p.glgaa),
+                team_glsavep: (p) => pretty_percent(p.glsavep),
+                team_name: (p) => pretty_team(p.team),
+                team_pointpct: (p) => pretty_percent(p.points/(p.gp*2)),
+                team_diff: (p) => pretty_diff(p.gf-p.ga),
+                team_home: (p) => pretty_record(p.record_home),
+                team_away: (p) => pretty_record(p.record_away),
+                team_conf: (p) => pretty_record(p.record_conf),
+                team_nonconf: (p) => pretty_record(p.record_nonconf),
+                team_streak: (p) => pretty_streak(p.streak),
+
+                game_log_player_team: (p) => pretty_team(player_team(p), true),
+                game_log_player_result,
+                game_log_player_opp_team: (p) => pretty_team(player_opp_team(p), true),
+                game_log_date: (p) => p.game.pretty_date
+            };
+            var sorts = {
+                str: (a,b) => b.toLowerCase().localeCompare(a.toLowerCase())
+            };
+            var div_container = document.getElementById('!{container}');
+            if (div_container) {
+                let header = '';
+                const onClick = (f) => '#{container}_sort_click(\''+f.name+'\')';
+                fields.forEach((f) => {
+                    let thclass = f.rank ? 'nowrap' : 'nowrap clickable';
+                    let thcontent = f.name;
+                    if (f.name == field.name && !f.rank) {
+                        thclass = `${thclass} active`;
+                        thcontent = thcontent + (#{container}_order ? '🔺' : '🔻');
+                    }
+                    const thattr = f.rank ? '' : `onClick="${onClick(f)}"`;
+                    header += `<th class="${thclass}"${thattr}>${thcontent}</th>`
+                });
+                var content = `<tr>${header}</tr>`;
+                if (!#{container}_initialized) {
+                    fields.forEach((f) => {
+                        if (f.fn) {
+                            const field_name = `#{container}_${f.fn}`;
+                            stats.forEach((stat) => stat[field_name] = fns[f.fn](stat));
+                            f.field = field_name;
+                            delete f.fn;
+                        }
+                    });
+                    #{container}_initialized = true;
+                }
+                var sortfn = field.sort ? sorts[field.sort] : (a,b) => parseFloat(a)-parseFloat(b);
+                if (#{container}_order) {
+                    stats.sort((a,b)=>sortfn(a[field.field],b[field.field]));
+                } else {
+                    stats.sort((a,b)=>sortfn(b[field.field],a[field.field]));
+                }
+                fields.forEach((f) => {
+                    if (f.rank) {
+                        if (!#{container}_order) {
+                            stats.forEach((s) => s[f.field] = `${rank++}.`);
+                        } else {
+                            stats.reverse().forEach((s) => s[f.field] = `${rank++}.`);
+                            stats.reverse();
+                        }
+                    }
+                });
+                if (!noflip) {
+                    #{container}_order = !#{container}_order;
+                }
+                stats = stats.filter((stat) => {
+                    const v = #{container}_mingp_value;
+                    if (!isNaN(v) && !isNaN(parseFloat(v))) {
+                        return stat.games >= v;
+                    } else {
+                        if (stat.visibility != 'hidden') {
+                            return true;
+                        }
+                    }
+                });
+                stats.forEach((stat) => {
+                    let row = '';
+                    if (#{container}_search_value) {
+                        const names = [stat.playername.toLowerCase()];
+                        if (stat.user) {
+                            names.push(stat.user.auth.username.toLowerCase());
+                            if (stat.user.gamertags) {
+                                Object.values(stat.user.gamertags).forEach((x)=> {
+                                    if (x != '') {
+                                        names.push(x.toLowerCase());
+                                    }
+                                });
+                            }
+                        }
+                        let m = 0;
+                        const cmp = #{container}_search_value.toLowerCase();
+                        names.forEach((name) => {
+                            if (name.includes(cmp)) {
+                                ++m;
+                            }
+                        });
+                        if (m == 0) {
+                            return;
+                        }
+                    }
+                    fields.forEach((f) => {
+                        var tdclass = f.class ? `${f.class} nowrap` : 'center nowrap';
+                        var c = (x) => x?x:0;
+                        row += `<td class="${tdclass}">${c(stat[f.field])}</td>`;
+                    });
+                    content += `<tr>${row}</tr>`;
+                });
+                content = `<table class="page_width statistics">${content}</table>`;
+                if (!(fields.find((f)=>f.name=='ROW'))) {
+                    setTimeout(() => {
+                        const priorElem = document.getElementById(#{container}_label);
+                        if (priorElem) {
+                            return;
+                        }
+                        const legendElem = document.getElementById('stat_legend_container');
+                        if (legendElem)
+                        {
+                            let legendContent = `<div id="${#{container}_label}">`; 
+                            legendContent += `<br /><table class="page_width colorized"><tr><th>${#{container}_label} Legend</th></tr>`;
+                            legendContent += '<tr><td><ul class="legend">';
+                            const legends = {
+                                'PLAT': 'Gaming Platform',
+                                'LVL': 'Player Level',
+                                'OFF': 'Offensive Rating',
+                                'DEF': 'Defensive Rating',
+                                'TEAM': 'Teamplay Rating',
+                                'GP': 'Games Played',
+                                'G': 'Goals',
+                                'A': 'Assists',
+                                'PTS': 'Points',
+                                'PPG': 'Powerplay Goal',
+                                'GWG': 'Game Winning Goal',
+                                'SHG': 'Shorthanded Goal',
+                                'DFG': 'Deflection Goal',
+                                'HITS': 'Hits',
+                                'PIM': 'Penalty Minutes',
+                                'DRAW': 'Penalty Draw',
+                                'S': 'Shots',
+                                'SA': 'Shot Attempts',
+                                'G%': 'Goal Percentage',
+                                'OTG%': 'OT Goal Percentage',
+                                'BS': 'Blocked Shot',
+                                '+/-': 'Plus / Minus',
+                                'GVA': 'Giveaway',
+                                'TKA': 'Takeaway',
+                                'INT': 'Interception',
+                                'FOW': 'Faceoff Win',
+                                'FO': 'Faceoffs',
+                                'FO%': 'Faceoff Percentage',
+                                'PA': 'Pass Attempt',
+                                'PC': 'Pass Completion',
+                                'PC%': 'Pass Completion Percentage',
+                                'PSCR': 'Saucer Pass',
+                                'POSS': 'Possession',
+                                'CZ': 'Clear Zone',
+                                'HT': 'Hat Trick',
+                                'TOI': 'Time On Ice',
+                                'GA': 'Goal Allowed',
+                                'SV': 'Save',
+                                'GAA': 'Goals Against Average',
+                                'SV%': 'Save Percentage',
+                                'BRK SA': 'Breakway Shot Against',
+                                'BRK SV': 'Breakaway Save',
+                                'PEN SA': 'Penalty Shot Against',
+                                'PEN SV%': 'Penalty Save Percentage',
+                                'DESP SV': 'Desperation Save',
+                                'POKE': 'Pokecheck',
+                                'SOP': 'Shutout Period',
+                                'P/GP': 'Points per Game Played',
+                                'W': 'Win',
+                                'L': 'Loss',
+                                'OTW': 'Overtime Win',
+                                'OTL': 'Overtime Loss',
+                                'SO': 'Shutout',
+                                'TEAM': 'Team',
+                            };
+                            fields.filter((f)=>!f.nolegend).map((f)=>`<li>${f.name} - ${legends[f.name]}</li>`).forEach((l)=>legendContent += l);
+                            legendContent += '</ul></td></tr></table></div>';
+                            legendElem.innerHTML += legendContent;
+                        }
+                    }, 250);
+                }
+                div_container.innerHTML = content;
+            }
+        }
+        (function() {
+            var stats = !{JSON.stringify(stats)};
+            var fields = !{JSON.stringify(fields)};
+            #{container}_sort(stats, fields, fields[0]);
+            #{container}_sort_click = (f) => #{container}_sort(stats,fields,fields.find((n)=>n.name==f));
+            #{container}_sort_update = () => #{container}_sort(stats,fields,#{container}_last_field,true);
+            #{container}_mingp_update = () => #{container}_sort(stats,fields,#{container}_last_field,true);
+            if (#{container}_filter) {
+                const elem = document.getElementById('!{container}_search');
+                elem.innerHTML = `<span>Search:<input type="text" onkeyup="#{container}_search(this.value);" /></span>`;
+
+                const gpelem = document.getElementById('!{container}_mingp');
+                gpelem.innerHTML = `<span>Min GP:<input type="text" onkeyup="#{container}_mingp(this.value);" /></span>`;
+            }
+        })();
+
+mixin skater_stats_table(stats,exclude,filter)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `skater_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'SKATER',fn:'playername',class:'left',sort:'str',nolegend:true},
+            {name:'TEAM',fn:'playerteam'},
+            {name:'POS',fn:'posSorted',sort:'str'},
+            {name:'GP',field:'games'},
+            {name:'G',field:'skgoals'},
+            {name:'A',field:'skassists'},
+            {name:'PTS',fn:'points'},
+            {name:'PPG',field:'skppg'},
+            {name:'GWG',field:'skgwg'},
+            {name:'SHG',field:'skshg'},
+            {name:'DFG',field:'skdeflections'},
+            {name:'HITS',field:'skhits'},
+            {name:'PIM',field:'skpim'},
+            {name:'DRAW',field:'skpenaltiesdrawn'},
+            {name:'S',field:'skshots'},
+            {name:'SA',field:'skshotattempts'},
+            {name:'G%',fn:'goalpct'},
+            {name:'OTG%',fn:'otgoalpct'},
+            {name:'BS',field:'skbs'},
+            {name:'+/-',fn:'skplusmin'},
+            {name:'GVA',field:'skgiveaways'},
+            {name:'TKA',field:'sktakeaways'},
+            {name:'INT',field:'skinterceptions'},
+            {name:'FOW',field:'skfow'},
+            {name:'FO',fn:'fo'},
+            {name:'FO%',fn:'fopct'},
+            {name:'PA',field:'skpassattempts'},
+            {name:'PC',field:'skpasses'},
+            {name:'PC%',fn:'pcpct'},
+            {name:'PSCR',field:'sksaucerpasses'},
+            {name:'POSS',field:'skpossession'},
+            {name:'CZ',field:'skpkclearzone'},
+            {name:'HT',fn:'ht'},
+            {name:'TOI',fn:'toi'},
+            {name:'PLAT',field:'clientPlatform',sort:'str'},
+            {name:'LVL',fn:'playerLevel'},
+            {name:'OFF',fn:'ratingOffense'},
+            {name:'DEF',fn:'ratingDefense'},
+            {name:'TEAM',fn:'ratingTeamplay'},
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    if filter
+        +search_container(`${cname}_search`)
+        +mingp_container(`${cname}_mingp`)
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,filter,'Skater Statistics')
+
+mixin goalie_stats_table(stats,exclude,filter)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `goalie_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'GOALIE',fn:'playername',class:'left',sort:'str',nolegend:true},
+            {name:'TEAM',fn:'playerteam'},
+            {name:'GP',field:'games'},
+            {name:'W',field:'glwins'},
+            {name:'L',field:'gllosses'},
+            {name:'OTL',field:'glotlosses'},
+            {name:'SA',field:'glshots'},
+            {name:'GA',field:'glga'},
+            {name:'PIM',field:'skpim'},
+            {name:'DRAW',field:'skpenaltiesdrawn'},
+            {name:'G',field:'skgoals'},
+            {name:'GWG',field:'skgwg'},
+            {name:'A',field:'skassists'},
+            {name:'SV',field:'glsaves'},
+            {name:'GAA',fn:'gaa'},
+            {name:'SV%',fn:'glsavepct'},
+            {name:'SO',field:'glshutouts'},
+            {name:'TOI',fn:'toi'},
+            {name:'BRK SA',field:'glbrkshots'},
+            {name:'BRK SV',field:'glbrksaves'},
+            {name:'BRK SV%',fn:'glbrksavepct'},
+            {name:'PEN SA',field:'glpenshots'},
+            {name:'PEN SV%',fn:'glpensavepct'},
+            {name:'DESP SV',field:'gldsaves'},
+            {name:'POKE',field:'glpokechecks'},
+            {name:'CZ',field:'glpkclearzone'},
+            {name:'SOP',field:'glsoperiods'},
+            {name:'PLAT',field:'clientPlatform',sort:'str'},
+            {name:'LVL',fn:'playerLevel'},
+            {name:'OFF',fn:'ratingOffense'},
+            {name:'DEF',fn:'ratingDefense'},
+            {name:'TEAM',fn:'ratingTeamplay'},
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    if filter
+        +search_container(`${cname}_search`)
+        +mingp_container(`${cname}_mingp`)
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,filter,'Goalie Statistics')
+
+mixin team_skater_stats_table(stats,exclude)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `skater_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'TEAM',fn:'team_name',sort:'str',nolegend:true},
+            {name:'GP',field:'gp'},
+            {name:'G',field:'goals'},
+            {name:'A',field:'assists'},
+            {name:'PTS',field:'points'},
+            {name:'P/GP',field:'pointsgp'},
+            {name:'PPG',field:'skppg'},
+            {name:'GWG',field:'skgwg'},
+            {name:'SHG',field:'skshg'},
+            {name:'DFG',field:'skdeflections'},
+            {name:'HITS',field:'hits'},
+            {name:'PIM',field:'pim'},
+            {name:'DRAW',field:'skpenaltiesdrawn'},
+            {name:'S',field:'shots'},
+            {name:'SA',field:'skshotattempts'},
+            {name:'G%',fn:'team_goalpct'},
+            {name:'BS',field:'bs'},
+            {name:'+/-',field:'plusmin'},
+            {name:'GVA',field:'giveaways'},
+            {name:'TKA',field:'takeaways'},
+            {name:'INT',field:'interceptions'},
+            {name:'FOW',field:'fow'},
+            {name:'FO',field:'fo'},
+            {name:'FO%',fn:'team_fopct'},
+            {name:'PA',field:'passattempts'},
+            {name:'PC',field:'passes'},
+            {name:'PC%',fn:'team_passpct'},
+            {name:'PSCR',field:'sksaucerpasses'},
+            {name:'POSS',field:'skpossession'},
+            {name:'CZ',field:'skpkclearzone'},
+            {name:'HT',field:'ht'}
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,undefined,'Skater Statistics')
+
+mixin team_goalie_stats_table(stats,exclude)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `goalie_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'TEAM',fn:'team_name',sort:'str',nolegend:true},
+            {name:'GP',field:'ggp'},
+            {name:'W',field:'glwins'},
+            {name:'L',field:'gllosses'},
+            {name:'OTL',field:'glotlosses'},
+            {name:'SA',field:'glshots'},
+            {name:'GA',field:'glga'},
+            {name:'PIM',field:'pim'},
+            {name:'SV',field:'glsaves'},
+            {name:'GAA',fn:'team_gaa'},
+            {name:'SV%',fn:'team_glsavep'},
+            {name:'SO',field:'glshutouts'},
+            {name:'TOI',fn:'team_gltoiseconds'},
+            {name:'BRK SA',field:'glbrkshots'},
+            {name:'BRK SV',field:'glbrksaves'},
+            {name:'BRK SV%',fn:'glbrksavepct'},
+            {name:'PEN SA',field:'glpenshots'},
+            {name:'PEN SV',field:'glpensaves'},
+            {name:'PEN SV%',fn:'glpensavepct'},
+            {name:'DESP SV',field:'gldsaves'},
+            {name:'POKE',field:'glpokechecks'},
+            {name:'CZ',field:'glpkclearzone'},
+            {name:'SOP',field:'glsoperiods'},
+            {name:'DRAW',field:'gskpenaltiesdrawn'},
+            {name:'G',field:'gskgoals'},
+            {name:'GWG',field:'gskgwg'},
+            {name:'A',field:'gskassists'}
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,undefined,'Goalie Statistics')
+
+mixin skater_game_log_stats(stats,exclude)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `skater_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'SKATER',fn:'playername',class:'left',sort:'str',nolegend:true},
+            {name:'TYPE',field:'game_type'},
+            {name:'DATE',fn:'game_log_date',sort:'str',nolegend:true},
+            {name:'TEAM',fn:'game_log_player_team',nolegend:true},
+            {name:'RES',fn:'game_log_player_result',sort:'str',nolegend:true},
+            {name:'OPP',fn:'game_log_player_opp_team',nolegend:true},
+            {name:'GP',field:'games'},
+            {name:'G',field:'skgoals'},
+            {name:'A',field:'skassists'},
+            {name:'PTS',fn:'points'},
+            {name:'PPG',field:'skppg'},
+            {name:'GWG',field:'skgwg'},
+            {name:'SHG',field:'skshg'},
+            {name:'DFG',field:'skdeflections'},
+            {name:'HITS',field:'skhits'},
+            {name:'PIM',field:'skpim'},
+            {name:'DRAW',field:'skpenaltiesdrawn'},
+            {name:'S',field:'skshots'},
+            {name:'SA',field:'skshotattempts'},
+            {name:'G%',fn:'goalpct'},
+            {name:'OTG%',fn:'otgoalpct'},
+            {name:'BS',field:'skbs'},
+            {name:'+/-',fn:'skplusmin'},
+            {name:'GVA',field:'skgiveaways'},
+            {name:'TKA',field:'sktakeaways'},
+            {name:'INT',field:'skinterceptions'},
+            {name:'FOW',field:'skfow'},
+            {name:'FO',fn:'fo'},
+            {name:'FO%',fn:'fopct'},
+            {name:'PA',field:'skpassattempts'},
+            {name:'PC',field:'skpasses'},
+            {name:'PC%',fn:'pcpct'},
+            {name:'PSCR',field:'sksaucerpasses'},
+            {name:'POSS',field:'skpossession'},
+            {name:'CZ',field:'skpkclearzone'},
+            {name:'HT',fn:'ht'},
+            {name:'TOI',fn:'toi'},  
+            {name:'PLAT',field:'clientPlatform',sort:'str'},
+            {name:'LVL',fn:'playerLevel'},
+            {name:'POS',fn:'posSorted',sort:'str'},
+            {name:'OFF',fn:'ratingOffense'},
+            {name:'DEF',fn:'ratingDefense'},
+            {name:'TEAM',fn:'ratingTeamplay'},
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,undefined,'Skater Game Log')
+
+mixin goalie_game_log_stats(stats,exclude)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `goalie_stats_table_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'GOALIE',fn:'playername',class:'left',sort:'str',nolegend:true},
+            {name:'TYPE',field:'game_type'},
+            {name:'DATE',fn:'game_log_date',sort:'str',nolegend:true},
+            {name:'TEAM',fn:'game_log_player_team',nolegend:true},
+            {name:'RES',fn:'game_log_player_result',sort:'str',nolegend:true},
+            {name:'OPP',fn:'game_log_player_opp_team',nolegend:true},
+            {name:'GP',field:'games'},
+            {name:'SA',field:'glshots'},
+            {name:'GA',field:'glga'},
+            {name:'PIM',field:'skpim'},
+            {name:'DRAW',field:'skpenaltiesdrawn'},
+            {name:'G',field:'skgoals'},
+            {name:'GWG',field:'skgwg'},
+            {name:'A',field:'skassists'},
+            {name:'SV',field:'glsaves'},
+            {name:'GAA',fn:'gaa'},
+            {name:'SV%',fn:'glsavepct'},
+            {name:'TOI',fn:'toi'},
+            {name:'BRK SA',field:'glbrkshots'},
+            {name:'BRK SV',field:'glbrksaves'},
+            {name:'BRK SV%',fn:'glbrksavepct'},
+            {name:'PEN SA',field:'glpenshots'},
+            {name:'PEN SV%',fn:'glpensavepct'},
+            {name:'DESP SV',field:'gldsaves'},
+            {name:'POKE',field:'glpokechecks'},
+            {name:'CZ',field:'glpkclearzone'},
+            {name:'SOP',field:'glsoperiods'},
+            {name:'PLAT',field:'clientPlatform',sort:'str'},
+            {name:'LVL',fn:'playerLevel'},
+            {name:'OFF',fn:'ratingOffense'},
+            {name:'DEF',fn:'ratingDefense'},
+            {name:'TEAM',fn:'ratingTeamplay'},  
+        ].filter((f)=>!exclude||!exclude.includes(f.name));
+    +stat_container(cname)
+    +stats_script(stats,cname,fields,undefined,'Goalie Game Log')
+
+mixin team_standings_stats(stats)
+    -
+        if (!('container_idx' in global)) global.container_idx = 0;
+        const cname = `team_standings_stats_${++global.container_idx}`;
+        const fields = [
+            {name:'RANK',field:'rank',rank:true,nolegend:true},
+            {name:'TEAM',fn:'team_name',class:'left',sort:'team',nolegend:true},
+            {name:'GP',field:'gp'},
+            {name:'W',field:'w'},
+            {name:'L',field:'l'},
+            {name:'OT',field:'ot'},
+            {name:'PTS',field:'points'},
+            {name:'P%',fn:'team_pointpct'},
+            {name:'RW',field:'rw'},
+            {name:'GF',field:'gf'},
+            {name:'GA',field:'ga'},
+            {name:'DIFF',fn:'team_diff'},
+            {name:'AWAY',fn:'team_away'},
+            {name:'HOME',fn:'team_home'},
+            {name:'CONF',fn:'team_conf'},
+            {name:'NON-CONF',fn:'team_nonconf'},
+            {name:'STRK',fn:'team_streak'}
+        ];
+    +stat_container(cname)
+    +stats_script(stats,cname,fields)
