@@ -1,11 +1,11 @@
 {
-    "description": "Chel Machine Example Site Configuration",
-    "name": "Chel Machine",
-    "label": "Chel Machine: Run your Chel League in Real Time",
-    "default_embed_description": "Chel Machine: Run your Chel League in Real Time",
+    "description": "Electric Hockey League Website",
+    "name": "Electric Hockey League",
+    "label": "Electric Hockey League",
+    "default_embed_description": "Electric Hockey League",
     "auth": {
-        "client_id": "",
-        "client_secret": "",
+        "client_id": "1379545091927965767",
+        "client_secret": "2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD",
         "callback_url": {
             "dev": "http://10.0.0.38:3000/auth/discord/callback",
             "prod": "https://example.chelmachine.com/auth/discord/callback"
@@ -13,16 +13,16 @@
     },
     "availability": {
         "enabled": true,
-        "days": ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"],
-        "times": ["9:00 PM EST", "9:45 PM EST", "10:30 PM EST"]
+        "days": ["monday","tuesday","wednesday","thursday"],
+        "times": ["9:00 PM EST", "9:25 PM EST", "10:10 PM EST"]
     },
-    "db": "example",
+    "db": "ehl",
     "roster_max": 22,
     "count_cpu_goals": true,
     "images": {
         "logo": {
             "url": "https://chelmachine.nyc3.digitaloceanspaces.com/static/chelmachine/logo.png",
-            "alt": "Chel Machine Logo"
+            "alt": "EHL Logo"
         }
     },
     "playoffs": {
@@ -36,7 +36,7 @@
     "url": {
         "css": "/stylesheets/theme.css",
         "font_css": "https://fonts.googleapis.com/css?family=Ubuntu+Mono",
-        "home": "https://example.chelmachine.com"
+        "home": "https://electrichockeyleague.com"
     },
     "schedule_start_day": 0
 }
