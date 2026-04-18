@@ -8,13 +8,13 @@
         "client_secret": "2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD",
         "callback_url": {
             "dev": "http://10.0.0.38:3000/auth/discord/callback",
-            "prod": "https://example.chelmachine.com/auth/discord/callback"
+            "prod": "https://electrichockeyleague.com/auth/discord/callback"
         }
     },
     "availability": {
         "enabled": true,
         "days": ["monday","tuesday","wednesday","thursday"],
-        "times": ["9:00 PM EST", "9:25 PM EST", "10:10 PM EST"]
+        "times": ["9:00 PM EST", "9:35 PM EST", "10:10 PM EST"]
     },
     "db": "ehl",
     "roster_max": 22,
