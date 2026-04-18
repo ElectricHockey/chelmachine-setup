@@ -1,0 +1,1011 @@
+const express = require('express');
+const router = express.Router();
+const view_config = require('../local/view_config');
+const teams = require('../local/teams');
+const seasons = require('../local/seasons');
+const db = require('../local/db');
+const ObjectId = require('mongodb').ObjectId;
+const { DateTime } = require('luxon');
+const games = require('../local/games');
+const players = require('../local/players');
+const csv_to_json = require('convert-csv-to-json');
+const users = require('../local/users');
+const markdown = require('../local/markdown');
+const util = require('../local/util');
+const fa = require('../local/fa');
+const trades = require('../local/trades');
+const discord = require('../local/discord');
+const config = global.config;
+const s3 = require('../local/s3');
+const playoffs = require('../local/playoffs');
+
+const year = (new Date()).getYear() + 1900;
+const years = [...Array(10).keys()].map((y)=>(year+1)-y);
+const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const days = []; for (var i = 1;i <= 31;i++) days.push(i);
+const times = config.availability.times;
+const game_actions = ['NONE','CHANGE TIME','REMOVE GAME'];
+
+const resolve_datetime = function(year, month, day, time) {
+    return new Date(`${month} ${day}, ${year}, ${time}`);
+}
+
+const get_csv_or_manual_stats = async function(req, render_locals) {
+    if (req.query === undefined || req.query._id === undefined) {
+        return;
+    }
+    const client = await db.client();
+    const game = await games.get_single_game(client, req.query._id);
+    render_locals.game = game;
+
+    render_locals.positions = ['C','LW','RW','LD','RD'];
+
+    render_locals.toa_list = [];
+    for (var i = 0;i <= 60;i++) { render_locals.toa_list.push(i); }
+
+    await client.close();
+};
+
+const get_markdown = async function(name, req, render_locals) {
+    const client = await db.client();
+    render_locals.mdsrc = await markdown.latest_md(client, name);
+    if (render_locals.mdsrc) {
+        render_locals.mdrender = markdown.render(render_locals.mdsrc.content);
+    }
+    await client.close();
+}
+
+const post_markdown = async function(req, name) {
+    const client = await db.client();
+    const insert_date = new Date();
+    const content = req.body.mdsrc;
+    await client.db(config.db).collection(name).insertOne({insert_date,content});
+    await client.close();
+}
+
+const get_routes = {
+    'add_games': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.game_types = games.game_types;
+        render_locals.seasons = await seasons.get_seasons(client);
+        const season_id = req.query.season_id ? util.coerce_int(req.query.season_id) : render_locals.seasons[0].season_id;
+        render_locals.season_teams = await await teams.season_teams(client, season_id);
+        await client.close();
+    },
+    'box_scores': async function(req, render_locals) {
+        const client = await db.client();
+        const coll_schedules = client.db(config.db).collection('schedules');
+        if (req.query.game_id) {
+            render_locals.game = await coll_schedules.findOne({_id: new ObjectId(req.query.game_id)});
+        } else {
+            const c = coll_schedules.find({forfeit_winner: { $exists: false }}).sort({date: 1});
+            render_locals.games = [];
+            for await (const d of c) {
+                render_locals.games.push(d);
+            }
+        }
+        await client.close();
+    },
+    'csv_stats': get_csv_or_manual_stats,
+    'fa_offers': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.fa_offers = await fa.pending_free_agents_all(client);
+        if (render_locals.fa_offers) {
+            for (let i = 0;i < render_locals.fa_offers.length;i++) {
+                const offer = render_locals.fa_offers[i];
+                offer.user = await users.get_record(client, offer.user_id);
+                const _id = offer.team;
+                offer.team = await client.db(config.db).collection('teams').findOne({_id});
+            }
+        }
+        await client.close();
+    },
+    'fo_requests': async function(req, render_locals) {
+        const client = await db.client();
+        const requests = await client.db(config.db).collection('fo_requests').find({}).toArray();
+        const team_map = {};    
+        requests.forEach((r)=>{
+            if (r.team) {
+                team_map[r.team._id.toString()] = 1;
+            }
+        });
+        const team_ids = Object.keys(team_map).map((x)=>new ObjectId(x));
+        const teams = await client.db(config.db).collection('teams').find(util.mongo_or_array('_id',team_ids)).toArray();
+        const team_users = {};
+        for (let t = 0;t < teams.length;t++) {
+            const team = teams[t];
+            team_users[team._id] = await users.eligible_owners(client, team._id);
+        }
+        requests.forEach((r) => {
+            r.team = teams.find((t)=>r.team._id.equals(t._id));
+            if (r.team) {
+                r.users = team_users[r.team._id];
+            }
+        });
+        render_locals.requests = requests.filter((r)=>r.users);
+        await client.close();
+    },
+    'home_page': async function(req, render_locals) { 
+        await get_markdown('index', req, render_locals); 
+    },
+    'link_stats': async function(req, render_locals) {
+        const client = await db.client();
+        const all_matches = await client.db(config.db).collection('matches').find({matchId:{$exists:true}}).toArray();
+        render_locals.games = await client.db(config.db).collection('schedules').find({stats:{$exists:false}}).sort({date:1}).toArray();
+        const seasons = [... new Set(render_locals.games.map((s)=>s.season_id))];
+        const teams = await client.db(config.db).collection('teams').find(util.mongo_or_array('season_id',seasons)).sort({season_id:-1}).toArray();
+        render_locals.games.forEach((game) => {
+            const away_teams = [
+                teams.find((t)=>t._id.equals(game.away_team_id)),
+                teams.find((t)=>t.team_id==game.away_club_id),
+                teams.find((t)=>t.team_name==game.away)
+            ].filter((x)=>x);
+            const home_teams = [
+                teams.find((t)=>t._id.equals(game.home_team_id)),
+                teams.find((t)=>t.team_id==game.home_club_id),
+                teams.find((t)=>t.team_name==game.home)
+            ].filter((x)=>x);
+            if (away_teams.length == 0) {
+                throw new Error(`Could not resolve away team: g.team_id=${game.away_team_id} g.away_club_id=${game.away_club_id} g.away=${game.away}`);
+            } else if (home_teams.length == 0) {
+                throw new Error(`Could not resolve home team: g.team_id=${game.home_team_id} g.home_club_id=${game.home_club_id} g.home=${game.home}`);
+            }
+            const home_team = home_teams[0];
+            const away_team = away_teams[0];
+            game.away_team = away_team;
+            game.home_team = home_team;
+            game.selections = {
+                0: 'NO CHANGE',
+                1: `Forfeit Win: ${away_team.team_name}`,
+                2: `Forfeit Win: ${home_team.team_name}`,
+                3: `Forfeit DRAW`
+            };
+
+            const candidates = games.get_candidate_matches_for_game(all_matches, game);
+            if (candidates.length) {
+                for (const p in candidates) {
+                    const cp = candidates[p];
+                    game.selections[cp._id] = `USE ${games.get_match_title(cp)}`;
+                }
+                
+                if (candidates.length > 1) {
+                    game.mergeable = true;
+                } 
+            }
+        });
+        await client.close();
+    },
+    'manage_trophy_case': async function (req, render_locals) {
+        const client = await db.client();
+        render_locals.trophies = await client.db(config.db).collection('trophy_descs').find({}).sort({order:-1}).toArray();
+        render_locals.seasons = await seasons.get_seasons(client);
+        render_locals.users = await users.all_users(client);
+        render_locals.season_id = ('season_id' in req.query) ? util.coerce_int(req.query.season_id) : render_locals.seasons[0].season_id;
+        render_locals.winners = await client.db(config.db).collection('trophy_winners').find({season_id:render_locals.season_id}).toArray();
+        render_locals.current_teams = await teams.season_teams(client, render_locals.season_id);
+        await client.close();
+    },
+    'merge_stats': async function(req, render_locals) {
+        if (req.query === undefined || req.query._id === undefined) {
+            return;
+        }
+
+        const client = await db.client();
+        const game = await games.get_single_game(client, req.query._id);
+        render_locals.game = game;
+        const all_matches = await client.db(config.db).collection('matches').find({matchId:{$exists:true}}).toArray();
+        render_locals.candidates = games.get_candidate_matches_for_game(all_matches, game);
+
+        await client.close();
+    },
+    'manual_stats': get_csv_or_manual_stats,
+    'player_stats': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.seasons = await seasons.get_seasons(client);
+        const current_season = req.query.season_id ? util.coerce_int(req.query.season_id) : render_locals.seasons[0].season_id;
+
+        if (req.query && req.query.player_dropdown !== undefined) {
+            render_locals.show_one_player = true;
+            render_locals.playername = req.query.player_dropdown;
+            render_locals.playerstats = await players.get_active_season_stats(client, render_locals.playername, current_season, true);
+        } else {
+            render_locals.show_all_players = true;
+            render_locals.current_season = current_season;
+            render_locals.players = await players.get_active_season_player_names(client, current_season, true);
+        }
+        await client.close();
+    },
+    'releases': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.teams = await client.db(config.db).collection('teams').find().toArray();
+        let user_names = [];
+        render_locals.teams.forEach((team) => {
+            if (team.release_block) {
+                user_names = user_names.concat(team.release_block);
+            }
+        });
+        render_locals.users = await client.db(config.db).collection('users').find(util.mongo_or_array('auth.username',user_names)).toArray();
+        await users.add_members_to_users(client, render_locals.users);
+        await client.close();
+    },
+    'manage_games': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.seasons = await seasons.get_seasons(client);
+        const season_id = req.query.season_id ? util.coerce_int(req.query.season_id) : render_locals.seasons[0].season_id;
+        render_locals.season_id = season_id;
+        const season_game_ids = (await client.db(config.db).collection('schedules').find({season_id})
+            .project({'_id':1}).sort({date:-1}).toArray()).map((x)=>x._id);
+        render_locals.games = [];
+        for (let s = 0;s < season_game_ids.length;s++) {
+            render_locals.games.push(await games.get_single_game(client, season_game_ids[s]));
+        }
+        render_locals.games = render_locals.games.filter((g)=>g!=undefined);
+        render_locals.games.forEach((game) => {
+            game.local_date = DateTime.fromJSDate(game.date, { zone: 'America/New_York' }).toJSDate();
+            game.local_date = game.local_date.toLocaleString("sv-SE", {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit"
+                                }).replace(" ", "T");
+        });
+        render_locals.manage_game_actions = game_actions;
+        await client.close();
+    },
+    'manage_playoffs': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.seasons = await seasons.get_seasons(client);
+        render_locals.current_season = req.query.season_id ? render_locals.seasons.find((s)=>s.season_id==req.query.season_id)
+            : render_locals.seasons[0];
+        render_locals.current_teams = await teams.season_teams(client, render_locals.current_season.season_id);
+        render_locals.playoff_series = await playoffs.playoff_series_for_season(client, render_locals.current_season.season_id);
+        await client.close();
+    },
+    'rulebook': async function(req, render_locals) { 
+        await get_markdown('rulebook', req, render_locals); 
+    },
+    'seasons': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.seasons = await seasons.get_seasons(client);
+        await client.close();
+    },
+    'teams': async function(req, render_locals) {
+        const client = await db.client();
+        if (req.query._id) {
+            render_locals.eligible_owners = (await users.eligible_owners(client, req.query._id))
+                .sort((a,b) => a.auth.username.toLowerCase().localeCompare(b.auth.username.toLowerCase()));
+            render_locals.team = await teams.team_lookup(client, req.query._id);
+            render_locals.eligible_users = await users.eligible_users(client, render_locals.team.season_id);
+            render_locals.team_users = await users.get_usernames(client, render_locals.team.roster);
+        } else {
+            render_locals.users = await users.all_users(client);
+            render_locals.seasons = await seasons.get_seasons(client);
+            if (req.query.season_id) {
+                render_locals.current_season = render_locals.seasons.find((s)=>s.season_id==req.query.season_id);
+            } else {
+                render_locals.current_season = render_locals.seasons[0];
+            }
+        }
+        await client.close();
+    },
+    'trades': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.teams = await teams.current_teams(client);
+        render_locals.accepted_trades = await trades.accepted_trades(client);
+        if (render_locals.accepted_trades) {
+            const user_map = {};
+            render_locals.accepted_trades.forEach((trade) => {
+                trade.offer_players.concat(trade.author_players).forEach((u)=>user_map[u]=1);
+            });
+            const trade_users = await client.db(config.db).collection('users')
+                .find(util.mongo_or_array('auth.username',Object.keys(user_map))).toArray();
+            await users.add_members_to_users(client, trade_users);
+            render_locals.users = trade_users;
+        }
+        await client.close();
+    },
+    'unlink_stats': async function(req, render_locals) {
+        const client = await db.client();
+        render_locals.seasons = await seasons.get_seasons(client);
+        render_locals.season_id = req.query.season_id ? util.coerce_int(req.query.season_id) : render_locals.seasons[0].season_id;
+        render_locals.completed_games = await games.get_completed_games(client, render_locals.season_id);
+        await client.close();
+    },
+    'users': async function(req, render_locals) {
+        const client = await db.client();
+        if (req.query.user_id) {
+            render_locals.user = await users.get_record(client, req.query.user_id);
+        } else {
+            render_locals.users = await users.all_users(client, true);
+            render_locals.users.forEach((x) => x.staff = view_config.user_admin(x));
+        }
+        await client.close();
+    }
+};
+
+const admin_route_get = async function(req, res) {
+    if (view_config.session_admin(req.session)) {
+        const client = await db.client();
+        const render_locals = await view_config.get(client, req);
+        render_locals.years = years;
+        render_locals.months = months;
+        render_locals.days = days;
+        render_locals.times = times;
+
+        if (req.query.season_id) {
+            render_locals.current_teams = await teams.season_teams(client, util.coerce_int(req.query.season_id));
+        } else {
+            render_locals.current_teams = await teams.current_teams(client);
+        }
+
+        if (req.params && req.params.section) {
+            if (req.params.section in get_routes) {
+                await get_routes[req.params.section](req, render_locals);
+            }
+        } else {
+            render_locals.site_stats = await db.site_stats(client);
+        }
+
+        var page = (req.params && req.params.section) ? req.params.section : 'index';
+        res.render(`admin/${page}`, render_locals);
+
+        await client.close();
+    } else {
+        res.redirect('/');
+    }
+}
+
+const set_game_forfeit_win = async function(client, game_id, home_wins) {
+    const filter = {_id: new ObjectId(game_id)};
+    const coll_schedules = client.db(config.db).collection('schedules');
+    const game = await coll_schedules.findOne(filter);
+    const ff_winner_id = home_wins ? game.home_club_id : game.away_club_id;
+
+    await coll_schedules.updateOne(filter, {
+        $set: {
+            stats: true,
+            forfeit_winner: ff_winner_id
+        }
+    });
+}
+
+const set_game_forfeit_draw = async function(client, game_id) {
+    const filter = {_id: new ObjectId(game_id)};
+    await client.db(config.db).collection('schedules').updateOne(filter, {
+        $set: {
+            stats: true,
+            forfeit_draw: true
+        }
+    });
+}
+
+const set_game_match = async function(client, game_id, linked_match_id) {
+    linked_match_id = new ObjectId(linked_match_id);
+    const filter = {_id:new ObjectId(game_id)};
+    await client.db(config.db).collection('schedules').updateOne(filter,{$set:{stats:true,linked_match_id}});
+}
+
+const post_routes = {
+    'add_games': async function(req) {
+        if (req.body) {
+            const away_teams = req.body.away_team;
+            const home_teams = req.body.home_team;
+            const game_type = req.body.game_type;
+            const season_id = util.coerce_int(req.body.season_id);
+            const date = resolve_datetime(req.body.year, req.body.month, req.body.day, req.body.time);
+            const games = [];
+            const client = await db.client();
+            const current_teams = await teams.season_teams(client, season_id);
+            const insert_date = new Date();
+            const insert_user = req.user;
+
+            for (var i = 0;i < away_teams.length;i++) {
+                const away_team_id = away_teams[i];
+                const home_team_id = home_teams[i];
+
+                if (away_team_id == '' || home_team_id == '') {
+                    continue; 
+                } else {
+                    const away_team = current_teams.find((t)=>t._id.equals(away_team_id));
+                    const home_team = current_teams.find((t)=>t._id.equals(home_team_id));
+                    if (away_team && home_team) {
+                        games.push({
+                            season_id,
+                            date,
+                            game_type,
+                            away: away_team.team_name,
+                            home: home_team.team_name,
+                            away_club_id: away_team.team_id,
+                            home_club_id: home_team.team_id,
+                            away_team_id: away_team._id,
+                            home_team_id: home_team._id,
+                            insert_date,
+                            insert_user
+                        });
+                    }
+                }
+            }
+
+            // write games to db
+            if (games.length > 0) {
+                const collection = client.db(config.db).collection("schedules");
+                await collection.insertMany(games);
+            }
+
+            await client.close();
+            return `Added ${games.length} Game(s) to the schedule`;
+        } else {
+            return false;
+        }
+    },
+    'box_scores': async function(req) {
+        const _id = new ObjectId(req.body.game_id);
+        const box_score = { away: {}, home: {} };
+        for (const e in req.body) {
+            if (e.startsWith('away_')) {
+                box_score.away[e.substring('away_'.length)] = req.body[e];
+            }else if (e.startsWith('home_')) {
+                box_score.home[e.substring('home_'.length)] = req.body[e];
+            }
+        }
+        const client = await db.client();
+        await client.db(config.db).collection('schedules').updateOne({_id}, {$set:{box_score}});
+        await client.close();
+        return `Updated Box Score for ${_id}`;
+    },
+    'csv_stats': async function(req) {
+        const game_id = req.query._id;
+        const client = await db.client();
+        const game = await games.get_single_game(client, game_id);
+        const team_ids = [game.away_club_id, game.home_club_id];
+        const clubs = {};
+
+        for (const idx in team_ids) {
+            const team_id = team_ids[idx];
+            const skatercsv = req.body[`skatercsv_${team_id}`];
+            const skaterjson = (skatercsv !== '') ? csv_to_json.fieldDelimiter(',').csvStringToJson(skatercsv) : {};
+            const goaliecsv = req.body[`goaliecsv_${team_id}`];
+            const goaliejson = (goaliecsv !== '') ? csv_to_json.fieldDelimiter(',').csvStringToJson(goaliecsv) : {};
+
+            clubs[team_id] = {
+                skaterjson,
+                goaliejson,
+                toa_minutes: req.body[`toaminutes_${team_id}`],
+                toa_seconds: req.body[`toaseconds_${team_id}`],
+                ppg: req.body[`ppg_${team_id}`],
+                ppo: req.body[`ppo_${team_id}`],
+                teamSide: (team_id === game.away_club_id) ? '1' : '0'
+            };
+        }  
+
+        const overtime = (req.body.overtime_game === 'on') ? true : false;
+        const ret = await games.submit_json_stats(req.user, client, game_id, clubs, overtime);
+        await client.close();
+        return ret;
+    },
+    'fa_offers': async function(req) {
+        const client = await db.client();
+        const _id = new ObjectId(req.body.offer_id);
+        const user_id = req.body.user_id;
+        await fa.accept_offer(client, _id, user_id);
+        await client.close();
+        return "FA Offer Accepted";
+    },
+    'fo_requests': async function(req) {
+        const _id = new ObjectId(req.body._id);
+        const client = await db.client();
+        const team = await client.db(config.db).collection('teams').findOne({_id});
+        const approve = req.body.approve === 'Approve' ? true : false;
+        const fo_request = await client.db(config.db).collection('fo_requests').findOne({'team._id':_id});
+        if (approve) {
+            const c = client.db(config.db).collection('users').find({$or:[{user_id:fo_request.gm},{user_id:fo_request.agm},{user_id:fo_request.agm2}]});
+            let gm_id, agm_id, agm2_id;
+            for await (const user of c) {
+                if (user.user_id === fo_request.gm) {
+                    gm_id = user.user_id;
+                }
+                if (user.user_id === fo_request.agm) {
+                    agm_id = user.user_id;
+                }
+                if (user.user_id === fo_request.agm2) {
+                    agm2_id = user.user_id;
+                }
+            }
+            if (fo_request.gm === '') {
+                gm_id = null;
+            }
+            if (fo_request.agm === '') {
+                agm_id = null;
+            }
+            if (fo_request.agm2 === '') {
+                agm2_id = null;
+            }
+            await teams.change_club_ownership(client, team, undefined, gm_id, agm_id, agm2_id);
+        }
+        await client.db(config.db).collection('fo_requests').deleteOne({_id: fo_request._id});
+        await client.close();
+        return "Front Office Request Processed";
+    },
+    'link_stats': async function(req) {
+        const client = await db.client();
+        var games_updated = 0;
+
+        for (const game_id in req.body) {
+            const s = req.body[game_id];
+
+            if (s === '0') {
+                continue; // no change
+            } else if (s === '1') {
+                await set_game_forfeit_win(client, game_id, false);
+                ++games_updated;
+            } else if (s === '2') {
+                await set_game_forfeit_win(client, game_id, true);
+                ++games_updated;
+            } else if (s === '3') {
+                await set_game_forfeit_draw(client, game_id);
+                ++games_updated;
+            } else {
+                await set_game_match(client, game_id, s);
+                await games.resolve_box_score(client, game_id);
+                ++games_updated;
+            }
+        }
+
+        await client.close();
+        return `Link Stats Completed for ${games_updated} games`;
+    },
+    'manage_playoffs': async function(req) {
+        const client = await db.client();
+        let status_message = 'No change made';
+        if (req.body.add_playoff_series === '1') {
+            const teams = [];
+            const season_id = util.coerce_int(req.body.season_id);
+            const playoff_round = req.body.playoff_round;
+            [0,1].forEach((idx) => {
+                teams.push({
+                    team_id: util.coerce_int(req.body.team_id[idx]),
+                    seed: req.body.seed[idx]
+                });
+            });
+            await playoffs.add_playoff_series(client, {
+                teams,
+                season_id,
+                playoff_round
+            });
+            status_message = 'Playoff Series Added';
+        } else if (req.body.delete_series === '1') {
+            const _id = new ObjectId(req.body.series_id);
+            await playoffs.remove_playoff_series(client, _id);
+            status_message = 'Playoff Series Removed';
+        }
+        await client.close();
+        return status_message;
+    },
+    'manage_trophy_case': async function(req) {
+        let status_message = 'Unknown post_mode';
+        const client = await db.client();
+        if (req.body.post_mode == 'add_trophy') {
+            const name = req.body.name;
+            const description = req.body.description;
+            const type = req.body.type;
+            const order = util.coerce_int(req.body.order);
+            await client.db(config.db).collection('trophy_descs').insertOne({
+                name, description, type, order
+            });
+            status_message = `${name} added to trophy case.`;
+        } else if (req.body.post_mode == 'update_trophies') {
+            if (!Array.isArray(req.body._id))
+                req.body._id = [req.body._id];
+            const num_trophies = req.body._id.length;
+            for (let t = 0;t < num_trophies;t++) {
+                const _id = new ObjectId(req.body._id[t]);
+                const name = req.body.name[t];
+                const description = req.body.description[t];
+                const type = req.body.type[t];
+                const order = util.coerce_int(req.body.order[t]);
+                if (req.body.delete[t] == 'yes') {
+                    await client.db(config.db).collection('trophy_descs').deleteOne({_id});
+                } else {
+                    await client.db(config.db).collection('trophy_descs').updateOne({_id},
+                        {$set:{name,description,type,order}});
+                }
+            }
+            status_message = 'Trophy Case Updated';
+        } else if (req.body.post_mode == 'update_winners') {
+            const num_trophies = req.body.trophy_id.length;
+            const all_seasons = await seasons.get_seasons(client);
+            const season_id = req.body.season_id ? util.coerce_int(req.body.season_id) : all_seasons[0].season_id;
+            for (let t = 0;t < num_trophies;t++) {
+                const _id = req.body._id[t] == '0' ? null : new ObjectId(req.body._id[t]);
+                const trophy_id = new ObjectId(req.body.trophy_id[t]);
+                const type = req.body.type[t];
+                const winner = type == 'team' ? req.body.winner[t]==''?'':new ObjectId(req.body.winner[t]) : req.body.winner[t];
+                if (winner == '') {
+                    if (_id != null) {
+                        await client.db(config.db).collection('trophy_winners').deleteOne({_id});
+                    }
+                } else {
+                    if (_id == null) {
+                        await client.db(config.db).collection('trophy_winners').insertOne(
+                            {trophy_id, type, winner, season_id});
+                    } else {
+                        await client.db(config.db).collection('trophy_winners').updateOne({_id},
+                            {$set:{winner}});
+                    }
+                }
+            }
+            status_message = 'Trophy Winners Updated';
+        }
+        await client.close();
+        return status_message;
+    },
+    'manual_stats': async function(req) {
+        const game_id = req.query._id;
+        const client = await db.client();
+        const game = await games.get_single_game(client, game_id); 
+        const team_ids = [game.away_club_id, game.home_club_id];
+        const clubs = {};
+
+        for (const idx in team_ids) {
+            const team_id = team_ids[idx];
+            const skater_attributes = [
+                'skname', 'skpos', 'skoffrtg', 'skdefrtg', 'skteamrtg', 'skgoals', 'skassists', 'skhits', 'skpim',
+                'skshots', 'skblkshots', 'skplusminus', 'skgiveaways', 'sktakeaways', 'skints', 'skfowins', 'skfoffs',
+                'skpassattempts', 'skpasses', 'sktoiminutes', 'sktoiseconds' ];
+            const goalie_attributes = [
+                'glname', 'gloffrtg', 'gldefrtg', 'glteamrtg', 'glsa', 'glga', 'glpim', 'glgoals',
+                'glassists', 'gltoiminutes', 'gltoiseconds', 'glsv' ];
+
+            var skaters = [];
+            var goalies = [];
+
+            for (const idx in skater_attributes) {
+                const attr_name = skater_attributes[idx];
+                const attrs = req.body[`${attr_name}_${team_id}`];
+
+                for (const attr_idx in attrs) {
+                    if (skaters[attr_idx] === undefined) {
+                        skaters[attr_idx] = {};
+                    }
+
+                    skaters[attr_idx][attr_name] = attrs[attr_idx];
+                }
+            }
+
+            skaters = skaters.filter((skater) => skater.skname.length > 0);
+
+            for (const idx in goalie_attributes) {
+                const attr_name = goalie_attributes[idx];
+                const attrs = req.body[`${attr_name}_${team_id}`];
+
+                for (const attr_idx in attrs) {
+                    if (goalies[attr_idx] === undefined) {
+                        goalies[attr_idx] = {};
+                    }
+
+                    goalies[attr_idx][attr_name] = attrs[attr_idx];
+                }
+            }
+
+            goalies = goalies.filter((goalie) => goalie.glname.length > 0);
+
+            clubs[team_id] = {
+                skaters,
+                goalies,
+                toa_minutes: req.body[`toaminutes_${team_id}`],
+                toa_seconds: req.body[`toaseconds_${team_id}`],
+                ppg: req.body[`ppg_${team_id}`],
+                ppo: req.body[`ppo_${team_id}`],
+                teamSide: (team_id === game.away_club_id) ? '1' : '0'
+            };
+        }  
+
+        const overtime = (req.body.overtime_game === 'on') ? true : false;
+        const ret = await games.submit_manual_stats(req.user, client, game_id, clubs, overtime);
+        await client.close();
+        return ret;
+    },
+    'merge_stats': async function(req) {
+        const game_id = req.query._id;
+        const merge_matches = [];
+        const overtime = req.body.overtime ? true : false;
+        delete req.body.overtime;
+
+        for (const matchid in req.body) {
+            if (req.body[matchid] === 'on') {
+                merge_matches.push(matchid);
+            }
+        }
+
+        const client = await db.client();
+        const ret = await games.submit_merged_stats(req.user, client, game_id, overtime, merge_matches);
+        await client.close();
+        return ret;
+    },
+    'player_stats': async function(req) {
+        const playername = req.body.playername;
+        const renameplayer = req.body.renameplayer;
+        const valid_games = [];
+        const invalid_games = [];
+
+        for (const n in req.body) {
+            if (n !== 'playername' && n !== 'renameplayer') {
+                if (req.body[n] === 'tag') {
+                    invalid_games.push(n);
+                } else {
+                    valid_games.push(n);
+                }
+            }
+        }
+
+        const client = await db.client();
+        await players.set_stat_validation(client, req.user, playername, valid_games, true);
+        await players.set_stat_validation(client, req.user, playername, invalid_games, false);
+
+        if (playername != renameplayer) {
+            await players.rename_player(client, req.user, playername, renameplayer);
+        }
+
+        await client.close();
+
+        if (playername != renameplayer) {
+            return `Updated Stats for ${playername} and renamed to ${renameplayer}`;
+        } else {
+            return `Updated Stats for ${playername}`;
+        }
+    },
+    'manage_games': async function(req) {
+        const client = await db.client();
+        const games = {};
+        Object.keys(req.body).forEach((game_id) => {
+            const changes = req.body[game_id];
+            game_actions.forEach((action) => {
+                if (changes[0] === action) {
+                    if (action === 'CHANGE TIME') {
+                        games[game_id] = {date:changes[1]};
+                    } else if (action === 'REMOVE GAME') {
+                        games[game_id] = {remove:true};
+                    } else if (action !== 'NONE') {
+                        throw new Error("UNKNOWN ACTION");
+                    }
+                }
+            });
+        });
+        for (const game_id in games) {
+            const changes = games[game_id];
+            const _id = new ObjectId(game_id);
+            if (changes.date) {
+                const date = DateTime.fromISO(changes.date).toJSDate();
+                await client.db(config.db).collection('schedules').updateOne({_id},{$set:{date}});
+            } else if (changes.remove) {
+                const game = await client.db(config.db).collection('schedules').findOne({_id});
+                if (game) {
+                    const remove_date = DateTime.now().toJSDate();
+                    await client.db(config.db).collection('deleted_schedules').insertOne({...game,remove_date});
+                }
+                await client.db(config.db).collection('schedules').deleteOne({_id});
+            }
+        }
+        await client.close();
+        return `Edited ${Object.keys(games).length} games`;
+    },
+    'releases': async function(req) {
+        const client = await db.client();
+        const _id = new ObjectId(req.body.team_id);
+        const team = await client.db(config.db).collection('teams').findOne({_id});
+        if (team) {
+            const release_players = Object.keys(req.body).filter((p) => p !== 'team_id');
+            const roster = team.roster.filter((p) => !release_players.includes(p));
+            await discord.on_players_released(client, team, release_players);
+            await client.db(config.db).collection('teams').updateOne({_id},{$set:{roster},$unset:{release_block:''}});
+            await client.close();
+            return `Processed Release Requests for ${team.team_name}`;
+        } else {
+            await client.close();
+            return 'Team Not Found Error';
+        }
+    },
+    'home_page': async function(req) {
+        await post_markdown(req, 'index');
+        return 'Updated Home Page';
+    },
+    'rulebook': async function(req) {
+        await post_markdown(req, 'rulebook');
+        return 'Updated Rulebook';
+    },
+    'seasons': async function(req) {
+        const client = await db.client();
+        if (req.body.post_type === 'add') {
+            await seasons.add_season(client, req.body.label);
+        } else if (req.body.post_type === 'edit') {
+            if (Array.isArray(req.body.season_id)) {
+                const useasons = [];
+                for (let i = 0;i < req.body.season_id.length;i++) {
+                    const season_id = util.coerce_int(req.body.season_id[i]);
+                    const label = req.body.label[i];
+                    const order = util.coerce_int(req.body.order[i]);
+                    useasons.push({season_id,label,order});
+                }
+                await seasons.update_seasons(client, useasons);
+            } else {
+                const season_id = util.coerce_int(req.body.season_id);
+                const label = req.body.label;
+                const order = util.coerce_int(req.body.order);
+                await seasons.update_season(client, season_id, label, order);
+            }
+        }
+        await client.close();
+        return "Seasons Updated";
+    },
+    'teams': async function(req) {
+        if (req.body.add_team === '1') {
+            const team_name = req.body.name;
+            const conference = req.body.conference;
+            const division = req.body.division;
+            const team_id = util.coerce_int(req.body.team_id);
+            const season_id = util.coerce_int(req.body.season_id);
+            const logo_url = (req.files && req.files.logo) ? await s3.upload(req.files.logo) : '';
+            const visible = true;
+            const client = await db.client();
+            await client.db(config.db).collection('teams').insertOne({
+                team_id,
+                team_name,
+                season_id,
+                logo_url,
+                conference,
+                division,
+                visible
+            });
+            await client.close();
+            return `Team ${team_name} Added`;
+        } else if (req.body.logo === '1') {
+            if (req.files) {
+                const _id = new ObjectId(req.body._id);
+                const image = req.files.image;
+                const logo_url = await s3.upload(image);
+                const client = await db.client();
+                await client.db(config.db).collection('teams').updateOne({_id},{$set:{logo_url}});
+                await client.close();
+                return "Logo Updated";
+            } else {
+                return "No file provided";
+            }
+        } else if (req.body.delete_team === '1') {
+            if (req.body.confirm === 'on') {
+                const client = await db.client();
+                const team = await client.db(config.db).collection('teams').findOne({_id:new ObjectId(req.body._id)});
+                const _id = team._id;
+                team.original_id = _id;
+                delete team._id;
+                await client.db(config.db).collection('deleted_teams').insertOne(team);
+                await client.db(config.db).collection('teams').deleteOne({_id});
+                await client.close();
+                return `${team.team_name} Deleted`;
+            } else {
+                return "Confirm checkbox not selected, aborting delete.";
+            }
+        } else if (req.body.roster === '1') {
+            const client = await db.client();
+            const releases = req.body.release ? (Array.isArray(req.body.release) ? req.body.release : [req.body.release]) : [];
+            const signs = req.body.sign ? (Array.isArray(req.body.sign) ? req.body.sign.filter((x)=>x!='') : [req.body.sign]) : [];
+            const _id = new ObjectId(req.body._id);
+            const team = await client.db(config.db).collection('teams').findOne({_id});
+            const roster = team.roster ? structuredClone(team.roster).filter((x)=>!releases.includes(x)).concat(signs) : [];
+            await client.db(config.db).collection('teams').updateOne({_id},{$set:{roster}});
+            await client.close();
+            return "Team Roster Updated";
+        } else {
+            const client = await db.client();
+            const _id = new ObjectId(req.body._id);
+            const team_name = req.body.team_name;
+            const team_id = util.coerce_int(req.body.team_id);
+            const discord_role = req.body.discord_role;
+            const owner = (req.body.owner === '') ? null : req.body.owner;
+            const gm = (req.body.gm === '') ? null : req.body.gm;
+            const agm = (req.body.agm === '') ? null : req.body.agm;
+            const agm2 = (req.body.agm2 === '') ? null : req.body.agm2;
+            const conference = req.body.conference;
+            const division = req.body.division;
+            const visible = req.body.visible === 'on';
+            const team = await client.db(config.db).collection('teams').findOne({_id});
+            await teams.change_club_ownership(client, team, owner, gm, agm, agm2);
+            await client.db(config.db).collection('teams').updateOne({_id},{$set:{team_name,team_id,discord_role,conference,division,visible}});
+            await client.close();
+            return `Team Updated`;
+        }
+    },
+    'trades': async function(req) {
+        const client = await db.client();
+        const offer_id = new ObjectId(req.body.offer_id);
+        let status_message = '';
+        if (req.body.accept === '1') {
+            await discord.admin_accept_trade(client, offer_id);
+            await trades.admin_accept_trade(client, offer_id);
+            status_message = "Trade Accepted";
+        } else {
+            await discord.admin_deny_trade(client, offer_id);
+            await trades.admin_deny_trade(client, offer_id);
+            status_message = "Trade Denied";
+        }
+        await client.close();
+        return status_message;
+    },
+    'unlink_stats': async function(req) {
+        let game_id;
+        for (const g in req.body) {
+            game_id = g;
+            break;
+        }
+
+        if (game_id === undefined) {
+            return "Invalid Game ID";
+        }
+
+        const client = await db.client();
+        await games.unlink_stats(client, game_id);
+        await client.close();
+
+        return `Unlinked Stats for Game ${game_id}`;
+    },
+    'users': async function(req) {
+        const client = await db.client();
+        ['stats','transactions','disciplinary','admin','banned'].forEach((f) => {
+            if (!(f in req.body)) {
+                req.body[f] = false;
+            } else if (f === 'admin') {
+                req.body[f] = true;
+            }
+        });
+        const gamertags = {xbsx:req.body.xbsx,ps5:req.body.ps5};
+        Object.keys(gamertags).forEach((k)=>{if(gamertags[k]=='')delete gamertags[k];});
+        const user_id = req.body.user_id;
+        const unique_gamertags = await users.are_gamertags_unique(client, user_id, gamertags);
+        if (!unique_gamertags) {
+            await client.close();
+            return `Playername not unique, not updating`;
+        } else {
+            const setval = {
+                tag: req.body.tag,
+                admin: req.body.admin,
+                stats: req.body.stats,
+                transactions: req.body.transactions,
+                disciplinary: req.body.disciplinary,
+                gamertags,
+                banned: req.body.banned ? true : false
+            };
+            await client.db(config.db).collection('users').updateOne({user_id},{$set:setval});
+            await users.logout_user(client, user_id);
+            await client.close();
+            return 'Updated User';
+        }
+    },
+};
+
+const admin_route_post = async function(req, res) {
+    if (view_config.session_admin(req.session)) {
+        const section = req.params.section;
+
+        if (section in post_routes) {
+            const result = await post_routes[section](req);
+            const status = encodeURIComponent(result === false ? 'Command Failed' : result);
+
+            if (section === 'manual_stats' || section === 'merge_stats' || section === 'csv_stats') {
+                res.redirect(`/admin/link_stats?status=${status}`);
+            } else {
+                res.redirect(`/admin/${section}?status=${status}`);
+            }
+        } else {
+            res.redirect('/admin?status=Post+Route+Not+Found');
+        }
+    } else {
+        res.redirect('/');
+    }
+}
+
+router.get('/', admin_route_get);
+router.get('/:section', admin_route_get);
+router.post('/:section', express.urlencoded({extended:true, limit: global.upload_limit, parameterLimit: 5000}), admin_route_post);
+
+module.exports = router;
