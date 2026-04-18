@@ -9,7 +9,7 @@ const db_port = function() {
 
 const client = async function() {
     const mongo_url = process.env.MONGO_URL || `mongodb://localhost:${mongo_port}`;
-    const out_client = new MongoClient(mongodb://mongo:VFIMXLLPEBDHPejSLwwxkpGWTckphfey@mongodb.railway.internal:27017);
+    const out_client = new MongoClient(mongo_url);
     await out_client.connect();
     return out_client;
 }
@@ -17,9 +17,7 @@ const client = async function() {
 const site_stats = async function(client) {
     const stats_out = {};
     const db = client.db(config.db);
-
     stats_out.num_matches = await db.collection('matches').count();
-
     return stats_out;
 }
 
