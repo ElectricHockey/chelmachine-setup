@@ -24,22 +24,21 @@ upgrade.init();
 console.log(`Website ${global.site} started at ${new Date()}, dev_mode ${global.dev_mode}`);
 
 const app = express();
-app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')))
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(cors());
 app.use(file_upload());
 
 // session setup
 const session_info = {
-  secret: '2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD',
+  secret: process.env.SESSION_SECRET || '2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD',
   cookie: {},
   resave: false,
   saveUninitialized: false,
-  store: mongo_store.create({ mongoUrl: `mongodb://localhost:${db.db_port()}/${config.db}` }),
+  store: mongo_store.create({ mongoUrl: process.env.MONGO_URL || `mongodb://localhost:${db.db_port()}/${config.db}` }),
 };
 
 if (app.get('env') === 'production') {
-  app.set('trust proxy', 1); // trust first proxy
-
+  app.set('trust proxy', 1);
   const on_except = async (err) => {
     const client = await db.client();
     await client.db(config.db).collection('exceptions').insertOne({
@@ -56,7 +55,6 @@ if (app.get('env') === 'production') {
 }
 
 app.use(session(session_info));
-
 app.use(passport.session());
 
 // view engine setup
@@ -95,11 +93,8 @@ app.use(function(req, res, next) {
 
 // error handler
 app.use(function(err, req, res, next) { // eslint-disable-line no-unused-vars
-  // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render('error');
 });
