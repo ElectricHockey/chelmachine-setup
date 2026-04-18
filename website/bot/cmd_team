@@ -1,0 +1,97 @@
+const { SlashCommandBuilder } = require("discord.js");
+const util = require('../local/util');
+const config = global.config;
+const ObjectId = require('mongodb').ObjectId;
+const db = require('../local/db');
+
+let choices_team_names;
+
+const execute_roster = async (interaction) => {
+    const options = interaction.options;
+    const team_id = options.getString('name', true);
+    const client = await db.client();
+    const team = await client.db(config.db).collection('teams').findOne({_id:new ObjectId(team_id)});
+    if ('roster' in team) {
+        let content = `${team.team_name} Roster:\n`;
+        team.roster.forEach((p) => {
+            content += `- ${p}\n`;
+        });
+        await interaction.reply({ content, ephemeral: true });
+    } else {
+        await interaction.reply({ content: `No roster exists for the ${team.team_name}`, ephemeral: true });
+    }
+
+    await client.close();
+};
+
+const execute = async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const sub_command = interaction.options.getSubcommand(true);
+    const cmd_map = {
+        roster: execute_roster,
+    };
+
+    if (sub_command in cmd_map) {
+        await cmd_map[sub_command](interaction);
+    } else {
+        await interaction.reply(`Unknown sub command ${sub_command}`);
+    }
+};
+/*
+const option_team_name = (option) => {
+    util.assert(choices_team_names, "No team choices");
+
+    return option
+        .setName('name')
+        .setDescription('team name to look up')
+        .setRequired(true)
+        .addChoices(...choices_team_names);
+}
+
+const sub_cmd_roster = (subcommand) => {
+    return subcommand
+        .setName('roster')
+        .setDescription('Print current team roster')
+        .addStringOption(option_team_name);
+}*/
+
+const register_command = async (client, commands) => {
+    if (!config.bot.command_team_enabled) {
+        console.log("cmd_team disabled, not registering slash commands");
+        return;
+    }
+
+    // get team choices by reading games played within the last 2 weeks
+    const current_date = new Date();
+    const gte_date = util.date_add_days(current_date, -14);
+    const lte_date = util.date_add_days(current_date, 14);
+    const filter = { date: { $gte: gte_date, $lte: lte_date } };
+    const games = await client.db(config.db).collection('schedules').find(filter).toArray();
+    const team_object_ids = {};
+    games.forEach((game) => {
+        team_object_ids[game.away_team_id] = 1;
+        team_object_ids[game.home_team_id] = 1;
+    });
+    const toid_arr = Object.keys(team_object_ids).map((x)=>new ObjectId(x));
+    const teams = (await client.db(config.db).collection('teams').find(util.mongo_or_array('_id',toid_arr)).toArray())
+        .sort((a,b)=>util.compare_strings(a.team_name,b.team_name));
+    
+    choices_team_names = [];
+    Object.values(teams).forEach((team) => {
+        choices_team_names.push({name: team.team_name, value: team._id.toString()});
+    });
+
+    // now register the comand
+    // commands.set('team', {
+    //     data: new SlashCommandBuilder()
+    //         .setName('team')
+    //         .setDescription('Team Information')
+    //         .addSubcommand(sub_cmd_roster),
+    //     execute,
+    // });
+}
+
+module.exports = {
+    register_command,
+};
