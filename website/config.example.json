@@ -1,0 +1,42 @@
+{
+    "description": "Chel Machine Example Site Configuration",
+    "name": "Chel Machine",
+    "label": "Chel Machine: Run your Chel League in Real Time",
+    "default_embed_description": "Chel Machine: Run your Chel League in Real Time",
+    "auth": {
+        "client_id": "",
+        "client_secret": "",
+        "callback_url": {
+            "dev": "http://10.0.0.38:3000/auth/discord/callback",
+            "prod": "https://example.chelmachine.com/auth/discord/callback"
+        }
+    },
+    "availability": {
+        "enabled": true,
+        "days": ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"],
+        "times": ["9:00 PM EST", "9:45 PM EST", "10:30 PM EST"]
+    },
+    "db": "example",
+    "roster_max": 22,
+    "count_cpu_goals": true,
+    "images": {
+        "logo": {
+            "url": "https://chelmachine.nyc3.digitaloceanspaces.com/static/chelmachine/logo.png",
+            "alt": "Chel Machine Logo"
+        }
+    },
+    "playoffs": {
+        "rounds": ["Division Semifinals", "Division Finals", "Conference Finals", "League Cup Finals"]
+    },
+    "site": {
+        "show_header": true,
+        "show_privacy_tos": true,
+        "player_stats_min_games": 5
+    },
+    "url": {
+        "css": "/stylesheets/theme.css",
+        "font_css": "https://fonts.googleapis.com/css?family=Ubuntu+Mono",
+        "home": "https://example.chelmachine.com"
+    },
+    "schedule_start_day": 0
+}

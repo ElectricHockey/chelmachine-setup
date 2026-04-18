@@ -1,0 +1,16 @@
+{
+    "description": "ChelMachine Discord Bot Configuration",
+    "name": "ChelMachine Discord Bot",
+    "label": "",
+    "discord_client_token": "",
+    "db": "discord_bot",
+    "bot": {
+        "client_id": "",
+        "sites": {
+            "example": {
+                "db": "example",
+                "guild_id": "12345678"
+            }
+        }
+    }
+}
