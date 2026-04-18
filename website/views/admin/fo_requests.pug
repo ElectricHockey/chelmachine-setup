@@ -1,0 +1,66 @@
+extends ../layout
+include ../_visual
+
+mixin current_gm(req,field)
+    td.center
+        if req.team.ownership && req.team.ownership[field]
+            - const user = req.users.filter((u)=>u.user_id===req.team.ownership[field].user_id)[0];
+            if user
+                +discord_avatar(user)
+                +discord_username(user)
+        else
+            span.red NONE
+
+mixin approve_button(req,approve)
+    td.center
+        form(action='/admin/fo_requests',method='POST')
+            input(type='hidden',name='_id',value=req.team._id)
+            input(type='hidden',name='approve',value=approve)
+            button(type='submit') #{approve} #{req.team.team_name} FO Request
+
+mixin gm_cell(req,field)
+    td.center
+        if req[field] != ''
+            - const cur = req.team.ownership && req.team.ownership[field] && req.team.ownership[field].user_id === req[field];
+            - const user = req.users.filter((u)=>u.user_id===req[field])[0];
+            if user
+                +discord_avatar(user)
+                +discord_username(user)
+            else
+                span.red ERROR
+        else
+            span.red NONE
+
+block content
+    .red
+        h1.red Front Office Change Requests
+        p Owners that Submit FO Change Requests can be approved/denied from this interface
+        table.page_width.colorized
+            tr
+                th Team
+                th Current GM
+                th New GM
+                th Current AGM
+                th New AGM
+                th Current AGM
+                th New AGM
+                th Approve
+                th Deny
+            - let num = 0;
+            for req in requests
+                - ++num;
+                tr
+                    td
+                        a(href=`/team?_id=${req.team._id}`)
+                            +team_logo(req.team, 'logo_small')
+                    +current_gm(req,'gm')
+                    +gm_cell(req,'gm')
+                    +current_gm(req,'agm')
+                    +gm_cell(req,'agm')
+                    +current_gm(req,'agm2')
+                    +gm_cell(req,'agm2')
+                    +approve_button(req, 'Approve')
+                    +approve_button(req, 'Deny')
+            if num == 0
+                tr
+                    td(colspan=9).center No Front Office Change Requests

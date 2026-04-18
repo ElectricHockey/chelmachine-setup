@@ -1,0 +1,74 @@
+extends ../layout
+
+block content
+    .red
+        h1.red Unlink Stats
+        p Season: 
+            select(name='season_id',onchange='window.location.href="/admin/unlink_stats?season_id="+this.value;')
+                for season in seasons
+                    option(value=season.season_id,selected=season_id==season.season_id)=season.label
+        form(action='/admin/unlink_stats',method='POST',id='unlink_games_form')
+            table.page_width.colorized
+                tr
+                    th Date
+                    th Away
+                    th(colspan=2) Score
+                    th Home
+                    th Stats Source
+                    th
+                - let current_game_date;
+                for game in completed_games
+                    if current_game_date === undefined
+                        - current_game_date = game.date.getTime();
+                    else if current_game_date !== game.date.getTime()
+                        - current_game_date = game.date.getTime();
+                        tr
+                            th(colspan=7) Break
+                    tr
+                        td=pretty_date(game.date)
+                        td.center
+                            span=game.away
+                        td.center
+                            if game.game_stats !== undefined
+                                for club in game.game_stats.clubs
+                                    if club.teamSide === '1'
+                                        span=club.score
+                            else
+                                if game.forfeit_draw === true
+                                    spawn.nowrap 0 (FFD)
+                                else if game.forfeit_winner === game.away_club_id
+                                    span.nowrap 1 (FFW)
+                                else
+                                    span.nowrap 0 (FFL)
+                        td.center
+                            if game.game_stats !== undefined
+                                for club in game.game_stats.clubs
+                                    if club.teamSide === '0'
+                                        span=club.score
+                            else
+                                if game.forfeit_draw === true
+                                    spawn.nowrap 0 (FFD)
+                                else if game.forfeit_winner === game.home_club_id
+                                    span.nowrap 1 (FFW)
+                                else
+                                    span.nowrap 0 (FFL)
+                        td.center
+                            span=game.home
+                        td.center
+                            if game.forfeit_draw === true
+                                span(style='color: pink') Forfeit Draw
+                            else if game.forfeit_winner !== undefined
+                                span(style='color: fuchsia') Forfeit Win
+                            else if game.game_stats
+                                if game.game_stats.matchId
+                                    span(style='color: green') Single EA Match
+                                else if game.game_stats.ea_matchids
+                                    span(style='color: blue') Merged EA Stats
+                                else
+                                    span.yellow Manual Stats
+                            else
+                                span.red WARNING: UNKNOWN
+                        td.red.center
+                            button(type='submit',name=game._id) Unlink Stats
+
+        

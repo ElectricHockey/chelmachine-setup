@@ -1,0 +1,115 @@
+extends ../layout
+include ../_visual
+
+mixin user_field_bool(field)
+    td.center
+        if field
+            span.green YES
+        else
+            span.red NO
+
+block content
+    .red
+        if query.user_id
+            h1.red Manage User #{user.auth.displayName}
+            form(action='/admin/users',method='POST')
+                input(type='hidden',name='user_id',value=user.user_id)
+                table.page_width.colorized
+                    tr
+                        th(colspan=2) USER
+                    tr
+                        td.right User ID:
+                        td.center=user.user_id
+                    tr
+                        td.right Avatar:
+                        td.center
+                            +discord_avatar(user)
+                    tr
+                        td.half_page_width.right Discord Name:
+                        td.center=user.auth.username
+                    tr
+                        td.right Tag (Label used to identify user, can be whatever you want):
+                        td.center
+                            input(type='text',name='tag',value=user.tag)
+                    tr
+                        td.right Admin (FULL SITE ACCESS!!!):
+                        td.center
+                            input(type='checkbox',name='admin',checked=user.admin)
+                    tr
+                        td.right Stats (Allowed to Update Game Stats):
+                        td.center
+                            input(type='checkbox',name='stats',checked=user.stats)
+                    tr
+                        td.right Transactions (Allowed to Update Team Rosters):
+                        td.center
+                            input(type='checkbox',name='transactions',checked=user.transactions)
+                    tr
+                        td.right Disciplinary (Allowed to Update Players and Team Rosters):
+                        td.center
+                            input(type='checkbox',name='disciplinary',checked=user.disciplinary)
+                    tr
+                        td.right Xbox Series S/X Gamertag:
+                        td.center
+                            input(type='text',name='xbsx',value=user.gamertags?user.gamertags.xbsx:'')
+                    tr
+                        td.right PlayStation 5 Gamertag:
+                        td.center
+                            input(type='text',name='ps5',value=user.gamertags?user.gamertags.ps5:'')
+                    tr
+                        td.right Ban User:
+                        td.center
+                            input(type='checkbox',name='banned',checked=user.banned)
+                    tr
+                        th(colspan=2)
+                            button(type='submit') Update User
+        else
+            h1.red Manage Users
+            input(type='checkbox',name='show_hidden',checked=query.show_hidden_users,
+                onchange='window.location.href="/admin/users'+(!query.show_hidden_users?'?show_hidden_users=1";':'";'))
+            label Show All Users
+            table.page_width.colorized
+                tr
+                    th(colspan=11) USERS
+                tr
+                    th Discord Name
+                    th Application
+                    th Tag
+                    th League Staff
+                    th Roles
+                    th Gamertag
+                    th Banned
+                    th 
+                for user in users
+                    if user && (user.membership || query.show_hidden_users)
+                        tr
+                            td.left
+                                +discord_avatar(user)
+                                +discord_username(user)
+                            if user.application
+                                td.left.center
+                                    span.green YES
+                            else
+                                td.left.center
+                                    span.red NO
+                            td.center=user.tag
+                            +user_field_bool(user.staff)
+                            td.center
+                                if user.admin
+                                    div.red ADMIN
+                                if user.stats
+                                    div.purple STATS
+                                if user.transactions
+                                    div.green TRANSACTIONS
+                                if user.disciplinary
+                                    div.yellow DISCIPLINARY
+                            td
+                                if user.gamertags
+                                    div xbsx: #{user.gamertags.xbsx}
+                                    div ps5: #{user.gamertags.ps5}
+                            td.center
+                                if user.banned
+                                    span.red YES
+                                else
+                                    span.green NO
+                            td.center
+                                a.red(href=`/admin/users?user_id=${user.user_id}`) Manage

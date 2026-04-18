@@ -1,0 +1,71 @@
+extends ../layout
+
+mixin playoff_series_team(label)
+    tr
+        td.right #{label} Seed:
+        td
+            input(type='text',name=`seed`)
+    tr
+        td.right #{label} Team:
+        td
+            select(name=`team_id`)
+                for team in current_teams
+                    option(value=team.team_id)=team.team_name
+
+mixin team_name(team_id)
+    - const team = current_teams.filter((t)=>t.team_id==team_id)[0];
+    span=team.team_name
+
+block content
+    p Active Season:
+        select(onchange='window.location.href="/admin/manage_playoffs?season_id="+this.value;')
+            for season in seasons
+                option(value=season.season_id,selected=current_season==season)=season.label
+    h1.red Manage Playoff Bracket for #{current_season.label}
+    p NOTE: This only sets the playoff bracket meta data. The playoff games THEMSELVES are still added via the add games menu as usual.
+        | You set their game type to playoff and those games will automatically get filtered into the appropriate playoff bracket as
+        | games are played
+    table.page_width.colorized
+        for round in config.playoffs.rounds.toReversed()
+            tr
+                th(colspan=6)=round
+            tr
+                th Seed
+                th Team
+                th VS
+                th Team
+                th Seed
+                th
+            for series in playoff_series
+                if series.playoff_round == round
+                    tr
+                        td.center=series.teams[0].seed
+                        td.center
+                            +team_name(series.teams[0].team_id)
+                        th VS
+                        td.center
+                            +team_name(series.teams[1].team_id)
+                        td.center=series.teams[1].seed
+                        td.center
+                            form(action='/admin/manage_playoffs',method='POST')
+                                input(type='hidden',name='series_id',value=series._id)
+                                input(type='hidden',name='delete_series',value='1')
+                                button(type='submit') Delete Playoff Series
+    br
+    form(action='/admin/manage_playoffs',method='POST')
+        input(type='hidden',name='add_playoff_series',value='1')
+        input(type='hidden',name='season_id',value=current_season.season_id)
+        table.page_width.colorized
+            tr
+                th(colspan=2) Add Playoff Series
+            tr
+                td.right Playoff Round:
+                td
+                    select(name='playoff_round')
+                        for round in config.playoffs.rounds
+                            option(value=round)=round
+            +playoff_series_team('A')
+            +playoff_series_team('B')
+            tr
+                th(colspan=2)
+                    button(type='submit') Add Playoff Series

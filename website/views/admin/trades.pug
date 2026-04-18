@@ -1,0 +1,53 @@
+extends ../layout
+include ../_visual
+
+mixin team_cell(team_id)
+    td.center
+        - const team = teams.find((t)=>t._id.equals(team_id));
+        +team_logo(team, 'logo_small')
+
+mixin players_cell(players)
+    td
+        table.page_width
+            for p in players
+                - const user = users.find((u)=>u.auth.username==p);
+                tr
+                    if p
+                        td
+                            +discord_avatar(user)
+                            +discord_username(user)
+                    else
+                        td=p
+
+block content
+    .red
+        h1.red Manage Accepted Trades
+        p This page contains trades accepted by teams. Before they can be finalized the transactions team must approve or deny.
+        if accepted_trades
+            table.page_width.colorized
+                tr
+                    th Author Team
+                    th Author Players
+                    th Offer Team
+                    th Offer Players
+                    th Accept
+                    th Deny
+                for trade in accepted_trades
+                    tr
+                        +team_cell(trade.author_team)
+                        +players_cell(trade.author_players)
+                        +team_cell(trade.offer_team)
+                        +players_cell(trade.offer_players)
+                        td.center
+                            form(action='/admin/trades',method='POST')
+                                input(type='hidden',name='offer_id',value=trade._id)
+                                input(type='hidden',name='accept',value='1')
+                                button(type='submit') ACCEPT
+                        td.center
+                            form(action='/admin/trades',method='POST')
+                                input(type='hidden',name='offer_id',value=trade._id)
+                                input(type='hidden',name='accept',value='')
+                                button(type='submit') DENY
+                        
+        else
+            p.red NO TRADES

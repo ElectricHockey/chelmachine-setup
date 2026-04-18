@@ -1,0 +1,83 @@
+extends ../layout
+
+mixin input_box_score_side_rows(side)
+    tr
+        td=side
+        td=game[side]
+        td.center
+            input(type="text",name=`${side}_1p`,value=(game.box_score)?game.box_score[side]['1p']:'')
+        td.center
+            input(type="text",name=`${side}_2p`,value=(game.box_score)?game.box_score[side]['2p']:'')
+        td.center
+            input(type="text",name=`${side}_3p`,value=(game.box_score)?game.box_score[side]['3p']:'')
+        td.center
+            input(type="text",name=`${side}_ot`,value=(game.box_score)?game.box_score[side]['ot']:'')
+        td.center
+            input(type="text",name=`${side}_so`,value=(game.box_score)?game.box_score[side]['so']:'')
+        td.center
+            input(type="text",name=`${side}_tot`,value=(game.box_score)?game.box_score[side]['tot']:'')
+
+mixin box_score_side_rows(side,game)
+    tr
+        td=game[side]
+        td=game.box_score[side]['1p']
+        td=game.box_score[side]['2p']
+        td=game.box_score[side]['3p']
+        td=game.box_score[side]['ot']
+        td=game.box_score[side]['so']
+        td=game.box_score[side]['tot']
+
+block content
+    .red
+        if query.game_id
+            h1.red Manage Box Score for Game #{game._id}
+            form(action='/admin/box_scores',method='POST')
+                input(type='hidden',name='game_id',value=game._id)
+                table.page_width.colorized
+                    tr
+                        th Side
+                        th Team
+                        th 1st
+                        th 2nd
+                        th 3rd
+                        th OT
+                        th SO
+                        th TOT
+                    +input_box_score_side_rows('away')
+                    +input_box_score_side_rows('home')
+                    tr
+                        th(colspan=8)
+                            button(type='submit') Submit Box Score
+
+        else
+            h1.red Manage Box Scores
+            p This page will show box scores for non forfeit games.
+            table.page_width.colorized
+                tr
+                    th.left Date
+                    th Away
+                    th Home
+                    th Has Stats
+                    th Box Score
+                    th Manage
+                for game in games
+                    tr
+                        td=pretty_date(game.date)
+                        td.center=game.away
+                        td.center=game.home
+                        td.center=(game.stats===true)?'Yes':'No'
+                        td.center
+                            if game.box_score
+                                table.half_page_width.colorized
+                                    tr
+                                        th Side
+                                        th 1st
+                                        th 2nd
+                                        th 3rd
+                                        th OT
+                                        th SO
+                                        th TOT
+                                    +box_score_side_rows('away', game)
+                                    +box_score_side_rows('home', game)
+                        td 
+                            a(href=`/admin/box_scores?game_id=${game._id}`) Manage

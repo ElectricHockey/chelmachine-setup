@@ -1,0 +1,31 @@
+extends ../layout
+include ../_visual
+
+block content
+    .red
+        h1.red Process Release Requests
+        - let release_teams = 0;
+        for team in teams
+            if team.release_block && team.release_block.length
+                - ++release_teams;
+                form(action='/admin/releases',method='POST')
+                    input(type='hidden',name='team_id',value=team._id)
+                    table.page_width.colorized
+                        tr
+                            th(colspan=2) #{team.team_name} Release Queue
+                        tr
+                            th Player
+                            th Process Release
+                        for p in team.release_block
+                            - const user = users.find((u)=>u.auth.username==p);
+                            tr
+                                td
+                                    +discord_avatar(user)
+                                    +discord_username(user)
+                                td.center
+                                    input(type='checkbox',name=p,checked=true)
+                        tr
+                            th(colspan=2)
+                                button(type='Submit') Process #{team.team_name} Releases
+        if release_teams === 0
+            p.center No Releases to Process, Good Job!

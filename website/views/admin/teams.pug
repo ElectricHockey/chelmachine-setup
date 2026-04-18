@@ -1,0 +1,269 @@
+extends ../layout
+include ../_visual
+
+mixin owner_cell(team, field)
+    td.center
+        select(name=field)
+            option(value='') NONE
+            for c in eligible_owners
+                - const username = c.auth.username;
+                - const s = team.ownership && team.ownership[field] && team.ownership[field].discordname == username;
+                option(value=c.user_id,selected=s)=c.membership?c.membership.displayName:username
+
+mixin team_owner(team, field)
+    if team.ownership && team.ownership[field]
+        td.center
+            - const user = users.find((u)=>u.auth.username==team.ownership[field].discordname);
+            if user
+                +discord_avatar_small(user)
+                +discord_username(user)
+            else
+                span=team.ownership[field].discordname
+    else
+        td.center
+            span.purple NONE
+
+mixin team_jersey(team, name)
+    td.center
+        if team.jerseys && team.jerseys[name]
+            a(href=url,target='_blank')
+                img.logo_small(src=team.jerseys[name],alt=`${team.team_name} ${name}`)
+
+mixin team_roster(team)
+    td
+        div.admin_team_roster
+            if team.roster
+                - let i = 1;
+                for player in team.roster
+                    - const user = users.find((u)=>u.auth.username==player);
+                    div
+                        if user
+                            span #{i++}.
+                            +discord_avatar_small(user)
+                            +discord_username(user)
+                        else
+                            span #{i++}. #{player}
+
+block content
+    .red
+        if query._id !== undefined
+            if team._id.equals(query._id)
+                h1.red Manage #{team.team_name}
+                form(action='/admin/teams',method='POST')
+                    input(type='hidden',name='_id',value=team._id)
+                    table.page_width.colorized
+                        tr
+                            th(colspan=10).left #{team.team_name} Details and Front Office
+                        tr
+                            th Team Name
+                            th Club ID
+                            th Discord Role
+                            th Visible
+                            th Owner
+                            th GM
+                            th AGM
+                            th AGM
+                            th Conference
+                            th Division
+                        tr
+                            td
+                                input(type='text',name='team_name',value=team.team_name)
+                            td
+                                input(type='text',name='team_id',value=team.team_id)
+                            td
+                                input(type='text',name='discord_role',value=team.discord_role)
+                            td
+                                input(type='checkbox',name='visible',checked=team.visible!==false)
+                            +owner_cell(team, 'owner')
+                            +owner_cell(team, 'gm')
+                            +owner_cell(team, 'agm')
+                            +owner_cell(team, 'agm2')
+                            td.center
+                                input(type='text',name='conference',value=team.conference)
+                            td.center
+                                input(type='text',name='division',value=team.division)
+                        tr
+                            th(colspan=10)
+                                button(type='submit') Update Team
+                br
+                form(action='/admin/teams',method='POST')
+                    input(type='hidden',name='roster',value='1')
+                    input(type='hidden',name='_id',value=team._id)
+                    table.page_width.colorized
+                        tr
+                            th 
+                            th Roster Management (#{config.roster_max} Max)
+                            th Release Player
+                        - let r = 0;
+                        if team.roster
+                            - team.roster.sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+                            for player in team.roster
+                                tr
+                                    td #{++r}.
+                                    td
+                                        - const user = team_users.find((u)=>u.auth.username==player);
+                                        if user && user.membership
+                                            +discord_avatar(user)
+                                            +discord_username(user)
+                                        else
+                                            a(href=`/player?username=${player}`)=player
+                                    td.center
+                                        -
+                                            let donotcut = false;
+                                            if (team.ownership) {
+                                                Object.values(team.ownership).forEach((owner) => {
+                                                    if (player == owner.discordname) {
+                                                        donotcut = true;
+                                                    }
+                                                });
+                                            }
+                                        if !donotcut
+                                            input(type='checkbox',name='release',value=player)
+                                        else
+                                            span.red IN FRONT OFFICE
+                        while r < config.roster_max
+                            tr
+                                td #{++r}.
+                                td
+                                    select(name='sign')
+                                        option(value='') NONE
+                                        for user in eligible_users
+                                            if user.membership
+                                                option(value=user.auth.username)=user.membership.displayName
+                                            else
+                                                option(value=user.auth.username)=user.auth.username
+                                td
+                        tr
+                            th(colspan=3)
+                                button(type='submit') Update Roster
+                br
+                form(action='/admin/teams',method='POST',enctype='multipart/form-data')
+                    input(type='hidden',name='_id',value=team._id)
+                    input(type='hidden',name='logo',value='1')
+                    table.page_width.colorized
+                        tr
+                            th(colspan=2).left #{team.team_name} Logo
+                        tr
+                            td(colspan=2).center NOTE: Prefer PNG images with square dimensions.
+                        tr
+                            td.right.quarter_page_width Current Image:
+                            td.center
+                                if team.logo_url
+                                    img(src=team.logo_url,alt='Team Logo')
+                                else
+                                    span.red NO LOGO
+                        tr
+                            td.right Upload New Image:
+                            td.center
+                                input(type='file',name='image',accept='image/png image/jpeg')
+                        tr
+                            th(colspan=2)
+                                button(type='submit') Upload New Logo Image
+                br
+                form(action='/admin/teams',method='POST')
+                    input(type='hidden',name='_id',value=team._id)
+                    input(type='hidden',name='delete_team',value='1')
+                    table.page_width.colorized
+                        tr
+                            th Delete #{team.team_name}
+                        - const roster_empty = !team.roster || team.roster.length == 0;
+                        - const ownership_empty = !team.ownership || Object.keys(team.ownership).length == 0;
+                        if !roster_empty || !ownership_empty
+                            tr
+                                td.center You cannot delete this team yet for the following reason(s). Correct them and try again.
+                                    ul
+                                        if !ownership_empty
+                                            li Team must have no owners.
+                                        if !roster_empty
+                                            li Roster must be empty.
+                        else
+                            tr
+                                td You can delete this team here. You must enable the checkbox below to confirm the operation!
+                            tr
+                                td.center CONFIRM DELETE:
+                                    input(name='confirm',type='checkbox',checked=false)
+                            tr
+                                td.center
+                                    button(type='submit') DELETE #{team.team_name.toUpperCase()}
+        else
+            .page_width
+                h1.red Teams
+                span Season:
+                select(id="season",onchange=`window.location.href="/admin/teams?season_id="+this.value;`)
+                    for season in seasons
+                        option(value=season.season_id,selected=current_season.season_id===season.season_id)=season.label
+            br
+            table.page_width.colorized
+                tr
+                    th Name
+                    th ID
+                    th Logo
+                    th Visible
+                    th Owner
+                    th GM
+                    th AGM
+                    th AGM
+                    th Roster
+                    th Home
+                    th Away
+                    th Alt
+                    th Conference
+                    th Division
+                    th
+                if current_teams.length
+                    for team in current_teams
+                        tr
+                            td=team.team_name
+                            td.center=team.team_id
+                            td.center
+                                if team.logo_url
+                                    a(href=team.logo_url,target='_blank')
+                                        img.logo_small(src=team.logo_url,alt=`${team.team_name} Logo`)
+                                else
+                                    span.red NONE
+                            td.center
+                                if team.visible === false
+                                    span ❌
+                                else
+                                    span ✅
+                            +team_owner(team, 'owner')
+                            +team_owner(team, 'gm')
+                            +team_owner(team, 'agm')
+                            +team_owner(team, 'agm2')
+                            +team_roster(team)
+                            +team_jersey(team,'HOME')
+                            +team_jersey(team,'AWAY')
+                            +team_jersey(team,'ALTERNATE')
+                            td.center=team.conference
+                            td.center=team.division
+                            td.center
+                                a(href=`/admin/teams?_id=${team._id}`) Manage
+                else
+                    tr
+                        td(colspan=11).center No Teams
+            br
+            h1 Add Team
+            form(action='/admin/teams',method='POST',enctype='multipart/form-data')
+                input(type='hidden',name='add_team',value='1')
+                input(type='hidden',name='season_id',value=current_season.season_id)
+                table.page_width.colorized
+                    tr
+                        th Name
+                        th ID (Must match EA ID)
+                        th Logo
+                        th Conference
+                        th Division
+                    tr
+                        td
+                            input(type='text',name='name')
+                        td
+                            input(type='text',name='team_id')
+                        td
+                            input(type='file',name='logo',accept='image/png image/jpeg')
+                        td
+                            input(type='text',name='conference')
+                        td
+                            input(type='text',name='division')
+                    tr
+                        th(colspan=5)
+                            button(type='submit') Add Team

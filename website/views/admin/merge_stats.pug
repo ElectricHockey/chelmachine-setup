@@ -1,0 +1,60 @@
+extends ../layout
+
+mixin player_stats(match,teamSide)
+    - const club = Object.values(match.clubs).find((c)=>c.teamSide==teamSide);
+    if club
+        - const club_id = Object.keys(match.clubs).find((k)=>club==match.clubs[k]);
+        tr
+            th(colspan=4) #{teamSide=='1'?'AWAY':'HOME'}: #{club.details.name}
+        tr
+            th Playername
+            th Position
+            th G
+            th A
+        for player in match.players[club_id]
+            tr
+                td=player.playername
+                td=player.position
+                td=player.skgoals
+                td=player.skassists
+    else
+        tr
+            th(colspan=4) NO CLUB FOUND, FAULTY MATCH
+
+block content
+    .red
+        form(action=`/admin/merge_stats?_id=${game._id}`,method="POST",id="merge_stats_form")
+            h1.red Merge Stats
+            p Game ID #{query._id}
+            table.page_width.colorized
+                tr
+                    th(colspan=2)=pretty_date(game.date)
+                tr
+                    th AWAY
+                    th HOME
+                tr
+                    td.center=game.away
+                    td.center=game.home 
+            br
+            table.page_width.colorized
+                tr
+                    th Overtime Game?
+                tr
+                    td.center Overtime:
+                        input(type='checkbox',name='overtime')
+            h1 Merge Candidates: #{candidates.length}
+            for c in candidates
+                table.page_width.colorized
+                    +player_stats(c,'1')
+                    +player_stats(c,'0')
+                    tr
+                        th(colspan=4) -
+                    tr
+                        td.right Use Stats For This Game When Merging:
+                        td(colspan=3)
+                            input(type="checkbox",name=c.matchId,checked)
+                br
+
+            .center
+                button(type="submit") Merge Stats
+            br

@@ -1,0 +1,32 @@
+extends ../layout
+
+block content
+    .red
+        h1 Review Active Free Agent Offers
+        p.red NOTE: You shouldn't need to be here.
+        span This page only exists to review FA Offers in case someone claims they dont have an offer etc. In general you
+            | should allow the players to accept offers on their own and let them reject by expiration. But if you really want
+            | you can force FA signing here, which may be useful for quick bootstrapping of the site for example.
+        if fa_offers
+            table.page_width.colorized
+                tr
+                    th(colspan=4) Active FA Offers
+                tr
+                    th Player
+                    th Team
+                    th Expires
+                    th Accept
+                for offer in fa_offers
+                    tr
+                        td.center=offer.user.auth.username
+                        td.center=offer.team.team_name
+                        td.center=pretty_date(offer.expires)
+                        th
+                            form(action='/admin/fa_offers',method='POST')
+                                input(type='hidden',name='offer_id',value=offer._id)
+                                input(type='hidden',name='user_id',value=offer.user_id)
+                                button(type='submit') Accept Offer For #{offer.user.auth.username} To Join #{offer.team.team_name}
+        else
+            table.page_width.colorized
+                tr
+                    th NO OFFERS

@@ -1,0 +1,174 @@
+extends ../layout
+
+block content
+    if game !== undefined
+        .red
+            h1.red Manually Enter Stats
+            form(action=`/admin/manual_stats?_id=${game._id}`,method="POST",id="add_games_form")
+                table.page_width.colorized
+                    tr
+                        th Away
+                        th Date
+                        th Home
+                    tr
+                        td.center.half_page_width=game.away_team.team_name
+                        td.center=pretty_date(game.date)
+                        td.center.half_page_width=game.home_team.team_name
+                table.half_page_width.colorized
+                    tr
+                        th Overtime Game?
+                    tr
+                        td.center
+                            input(type="checkbox",name=`overtime_game`)
+                for team in [game.away_team, game.home_team]
+                    h2 #{team.team_name} Stats
+                    table.half_page_width.colorized
+                        tr
+                            th(colspan=3) TIME ON ATTACK
+                        tr
+                            th Minutes
+                            th
+                            th Seconds
+                        tr
+                            td
+                                select(name=`toaminutes_${team.team_id}`)
+                                    for i in toa_list
+                                        option(value=i)=i 
+                            td.page_width.center :
+                            td
+                                select(name=`toaseconds_${team.team_id}`)
+                                    for i in toa_list
+                                        option(value=i)=i
+                        tr
+                            th(colspan=3) POWER PLAY
+                        tr
+                            th Goals
+                            th
+                            th Opportunities
+                        tr
+                            td
+                                select(name=`ppg_${team.team_id}`)
+                                    for i in toa_list
+                                        option(value=i)=i
+                            td.page_width.center /
+                            td
+                                select(name=`ppo_${team.team_id}`)
+                                    for i in toa_list
+                                        option(value=i)=i
+                    br
+                    table.page_width.colorized
+                        tr
+                            th.left SKATER
+                            th POS
+                            th OFF Rtg
+                            th DEF Rtg
+                            th TEAM Rtg
+                            th G
+                            th A
+                            th HITS
+                            th PIM
+                            th S
+                            th BS
+                            th +/-
+                            th GVA
+                            th TKA
+                            th INT
+                            th FOW
+                            th FO
+                            th PA
+                            th PC
+                            th TOI
+                        - var w = 0;
+                        while w++ < 10
+                            tr
+                                td
+                                    input(type="text",name=`skname_${team.team_id}`)
+                                td
+                                    select(name=`skpos_${team.team_id}`)
+                                        for position in positions
+                                            option(value=position)=position
+                                td
+                                    input(type="text",name=`skoffrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skdefrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skteamrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skgoals_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skassists_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skhits_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skpim_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skshots_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skblkshots_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skplusminus_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skgiveaways_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`sktakeaways_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skints_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skfowins_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skfoffs_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skpassattempts_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`skpasses_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`sktoiminutes_${team.team_id}`,size=5)
+                                    span :
+                                    select(name=`sktoiseconds_${team.team_id}`)
+                                        for i in toa_list
+                                            option(value=i)=i 
+
+                    table.page_width.colorized
+                        tr
+                            th.left GOALIE
+                            th OFF Rtg
+                            th DEF Rtg
+                            th TEAM Rtg
+                            th SA
+                            th GA
+                            th PIM
+                            th G
+                            th A
+                            th SV
+                            th TOI
+                        - var w = 0;
+                        while w++ < 3
+                            tr
+                                td
+                                    input(type="text",name=`glname_${team.team_id}`)
+                                td
+                                    input(type="text",name=`gloffrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`gldefrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glteamrtg_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glsa_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glga_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glpim_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glgoals_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glassists_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`glsv_${team.team_id}`,size=5)
+                                td
+                                    input(type="text",name=`gltoiminutes_${team.team_id}`,size=5)
+                                    span :
+                                    select(name=`gltoiseconds_${team.team_id}`)
+                                        for i in toa_list
+                                            option(value=i)=i 
+                .center
+                    button(type="submit") Enter Stats

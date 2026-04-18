@@ -1,0 +1,116 @@
+extends ../layout
+
+mixin trophy_type_dropdown(trophy_type)
+    select(name='type')
+        option(value='player',selected=trophy_type=='player') Player Trophy
+        option(value='team',selected=trophy_type=='team') Team Trophy
+
+block content
+    .red
+        h1.red 🏆 Manage Trophy Case
+        .yellow
+            h2 Manage Mode
+            p This page can be switched between configure trophy mode (where you can add or remove trophy types) and assign trophy mode
+             | (where you assign trophy winners on a per season basis). Use the dropdown below to switch between them.
+        select(id='trophy_mode',onchange='window.location.href="/admin/manage_trophy_case?trophy_mode="+this.value;')
+            each i in ['Configure Trophies','Assign Trophies']
+                option(value=i,selected=query.trophy_mode==i)=i
+        if query.trophy_mode == 'Assign Trophies'
+            div
+                h2 Assign Trophies
+                span Trophy Season:
+                select(id='season',onchange='window.location.href="/admin/manage_trophy_case?trophy_mode=Assign+Trophies&season_id="+this.value;')
+                    for season in seasons
+                        option(value=season.season_id,selected=season.season_id==query.season_id)=season.label
+                if trophies && trophies.length
+                    form(action='/admin/manage_trophy_case',method='POST')
+                        input(type='hidden',name='post_mode',value='update_winners')
+                        input(type='hidden',name='season_id',value=query.season_id)
+                        table.page_width.colorized
+                            tr
+                                th Name
+                                th Description
+                                th Type
+                                th Recipient
+                            for trophy in trophies
+                                - const winner = winners.find((w)=>w.trophy_id.equals(trophy._id));
+                                tr
+                                    td.center=trophy.name
+                                    td.center=trophy.description
+                                    td.center=trophy.type
+                                    td.center
+                                        input(type='hidden',name='_id',value=winner?winner._id:'0')
+                                        input(type='hidden',name='trophy_id',value=trophy._id)
+                                        input(type='hidden',name='type',value=trophy.type)
+                                        select(name='winner')
+                                            option(value='') NONE
+                                            if trophy.type == 'player'
+                                                for user in users
+                                                    if user.auth
+                                                        option(value=user.auth.username,selected=winner?winner.winner==user.auth.username:false)=user.auth.username
+                                            else
+                                                for team in current_teams
+                                                    option(value=team._id,selected=winner?winner.winner.equals(team._id):false)=team.team_name
+                            tr
+                                th(colspan=4)
+                                    button(type='submit') Update Trophy Case
+                else
+                    table.page_width.colorized
+                        tr
+                            td There are no trophies configured yet. Add some!
+        else
+            h2 Configure Trophy Case
+            form(action='/admin/manage_trophy_case',method='POST')
+                input(type='hidden',name='post_mode',value='update_trophies')
+                table.page_width.colorized
+                    tr
+                        th Trophy Name
+                        th Description
+                        th Type
+                        th Order
+                        th Delete
+                    if trophies && trophies.length > 0
+                        for trophy in trophies
+                            tr
+                                td.center
+                                    input(type='hidden',name='_id',value=trophy._id)
+                                    input(type='text',name='name',value=trophy.name)
+                                td.center
+                                    input(type='text',name='description',value=trophy.description)
+                                td.center
+                                    +trophy_type_dropdown(trophy.type)
+                                td.center
+                                    input(type='text',name='order',value=trophy.order)
+                                td.center
+                                    select(name='delete')
+                                        option(value='no') no
+                                        option(value='yes') YES
+                        tr
+                            th(colspan=5)
+                                button(type='submit') Update Trophy Case
+                    else
+                        tr
+                            td(colspan=4).center No Trophies yet. Why not add one below?
+            br
+            form(action='/admin/manage_trophy_case',method='POST')
+                input(type='hidden',name='post_mode',value='add_trophy')
+                table.page_width.colorized
+                    tr
+                        th(colspan=4) Add New Trophy
+                    tr
+                        th Name
+                        th Description
+                        th Type
+                        th Order
+                    tr
+                        td.center
+                            input(type='text',name='name')
+                        td.center
+                            input(type='text',name='description')
+                        td.center
+                            +trophy_type_dropdown()
+                        td.center
+                            input(type='text',name='order',value='0')
+                    tr
+                        th(colspan=4)
+                            button(type='submit') Add New Trophy

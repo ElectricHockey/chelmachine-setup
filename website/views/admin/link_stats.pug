@@ -1,0 +1,102 @@
+extends ../layout
+
+mixin box_score_row(game, files, side)
+    tr
+        td=game[side].team_name
+        td=files.box_score[side]['1p']
+        td=files.box_score[side]['2p']
+        td=files.box_score[side]['3p']
+        td=files.box_score[side]['ot']
+        td=files.box_score[side]['so']
+        td=files.box_score[side]['tot']
+        
+
+mixin owner_files_for_game(game, team)
+    td.center
+        - const team_id = team._id;
+        if game.files && game.files[team_id]
+            - const files = game.files[team_id]
+            table.page_width
+                tr
+                    th BOX SCORE
+                tr
+                    td
+                        table.page_width.colorized
+                            tr
+                                th T
+                                th 1
+                                th 2
+                                th 3
+                                th OT
+                                th S
+                                th TOT
+                            +box_score_row(game, files, 'away')
+                            +box_score_row(game, files, 'home')
+                tr
+                    th IMAGES
+                - if (!Array.isArray(files.images)) { files.images = [files.images]; }
+                for image in files.images
+                    if typeof image !== 'object'
+                        tr
+                            td
+                                img.screenshot(src=image,alt=image)
+
+block content
+    .red
+        h1.red Link Game Stats
+        .playoff_series
+            p This form displays all scheduled games with no linked statistics. How to use this page depends on what you want to do:
+                list
+                    ul.yellow I want to add stats for a complete game
+                        p If the game in question has been played in a complete game (no lagouts) and the game has been scraped, you can link the stats directly for that game.
+                    ul.yellow I want to mark a forfeit win for an unplayed game
+                        p Every game can be marked as a forfeit win for a specific team using the dropdown.
+                    ul.yellow I want to mark a forfeit draw
+                        p Every game can be marked as a forfeit draw where neither team gets points using the dropdown.
+                    ul.yellow I want to merge multiple games
+                        p If a game was played multiple times, you can click "Merge Stats" to bring up a simple page and choose what stats to merge into the complete game.
+            p Once you've made your changes you can press "Link Stats" below to submit the changes to the website.
+        
+        form(action="/admin/link_stats",method="POST",id="link_stats_form")
+            table.page_width.colorized
+                tr
+                    th(colspan=9)
+                        button(type="submit") Link Stats
+                tr
+                    th Date
+                    th Away
+                    th Home
+                    th Selection
+                    th Away Upload
+                    th Home Upload
+                    th(colspan=3)
+                - var last_date;
+                for game in games
+                    if last_date && last_date.getTime() != game.date.getTime()
+                        tr
+                            th(colspan=9) Break
+                    - last_date = game.date
+                    tr
+                        td=pretty_date(game.date)
+                        td.center=game.away_team.team_name
+                        td.center=game.home_team.team_name
+                        td.center
+                            select(id=game._id,name=game._id)
+                                each text, key in game.selections
+                                    option(value=key)=text
+                        +owner_files_for_game(game, game.away_team)
+                        +owner_files_for_game(game, game.home_team)
+                        td.center
+                            a(href=`/admin/manual_stats?_id=${game._id}`) Manually Enter Stats
+                        td.center
+                            //a(href=`/admin/csv_stats?_id=${game._id}`) Enter CSV Stats
+                        td.center
+                            if game.mergeable === true
+                                a(href=`/admin/merge_stats?_id=${game._id}`) Merge Stats
+                    if game_counter++ == 12
+                        - game_counter = 0;
+                        tr
+                            th(colspan=5) Break
+                tr
+                    th(colspan=9)
+                        button(type="submit") Link Stats

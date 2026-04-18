@@ -1,0 +1,88 @@
+extends ../layout
+
+block content
+    .red
+        form(action=`/admin/csv_stats?_id=${query._id}`,method="POST",id="csv_stats_form")
+            h1.red CSV Stats
+            p.yellow Game ID #{query._id}
+            p.white 
+                    | You can use this to enter stats from a webpage (like yourstatsoffline). I used HTML-Table Scraper for Firefox. Then on the web page of stats you want,
+                    | you can right click on a table and create a CSV Formatted text entry.
+            table.page_width.colorized
+                tr
+                    th Away
+                    th Date
+                    th Home
+                tr
+                    td.center.half_page_width=away_team.team_name
+                    td.center=pretty_date(game.date)
+                    td.center.half_page_width=home_team.team_name
+            table.half_page_width.colorized
+                tr
+                    th Overtime Game?
+                tr
+                    td.center
+                        input(type="checkbox",name=`overtime_game`)
+            for team in local_teams
+                h2 #{team.team_name} Stats
+                table.half_page_width.colorized
+                    tr
+                        th(colspan=3) TIME ON ATTACK
+                    tr
+                        th Minutes
+                        th
+                        th Seconds
+                    tr
+                        td
+                            select(name=`toaminutes_${team.team_id}`)
+                                for i in toa_list
+                                    option(value=i)=i 
+                        td.page_width.center :
+                        td
+                            select(name=`toaseconds_${team.team_id}`)
+                                for i in toa_list
+                                    option(value=i)=i
+                    tr
+                        th(colspan=3) POWER PLAY
+                    tr
+                        th Goals
+                        th
+                        th Opportunities
+                    tr
+                        td
+                            select(name=`ppg_${team.team_id}`)
+                                for i in toa_list
+                                    option(value=i)=i
+                        td.page_width.center /
+                        td
+                            select(name=`ppo_${team.team_id}`)
+                                for i in toa_list
+                                    option(value=i)=i
+                br
+                table.page_width.colorized
+                    tr
+                        th SKATER CSV STATS
+                    tr
+                        td
+                            textarea(name=`skatercsv_${team.team_id}`,rows=12,cols=240)
+                                | EXAMPLE VALID SKATER CONTENT: REPLACE WITH YOUR OWN (TOTAL IS IGNORED), MAKE SURE PLAYER NAMES DONT HAVE COMMAS
+                                | "PLAYERS","POS",G,A,PTS,HITS,PIM,S,"G%",BS,+/-,GVA,TKA,INT,FOW,FO,"FO%",PA,PC,"PC%",HT
+                                | "Bergy4198","C",1,2,3,3,0,1,"100%",2,+3,14,1,4,0,0,"-",15,13,"86.7%",0
+                                | "Captnadam69","D",3,3,6,8,0,2,"100%",1,+3,12,2,3,0,0,"-",27,22,"81.5%",1
+                                | "MonKeySmash7418","LW",3,0,3,7,2,7,"43%",0,+3,8,3,6,0,0,"-",16,9,"56.3%",1
+                                | "neeckx","C",1,3,4,11,2,6,"17%",1,+3,6,3,3,12,31,"39%",20,17,"85%",0
+                                | "Vek Sovan","RW",0,3,3,10,2,0,"-",0,+3,11,7,8,1,2,"50%",26,21,"80.8%",0
+                                | "TOTAL","",8,11,19,39,6,16,"50%",4,+15,51,16,24,13,33,"39%",104,82,"78.8%",2
+                br
+                table.page_width.colorized
+                    tr
+                        th GOALIE CSV STATS
+                    tr
+                        td
+                            textarea(name=`goaliecsv_${team.team_id}`,rows=6, cols=240)
+                                | EXAMPLE VALID GOALIE CONTENT: REPLACE WITH YOUR OWN (TOTAL IS IGNORED), MAKE SURE PLAYER NAMES DONT HAVE COMMAS
+                                | "GOALIES",SA,GA,"W",L,OTW,OTL,PIM,G,A,TOI,SV,GAA,SV%,PTS,SO
+                                | "itsbnlss",28,5,"X",,0,,0,0,0,60,23,5.00,.821,0,
+                                | "TOTAL",28,5,"1",0,0,0,0,0,0,60,23,5.00,.821,0,0
+            .center
+                button(type="submit") Enter Stats

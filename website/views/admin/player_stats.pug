@@ -1,0 +1,67 @@
+extends ../layout
+
+block content
+    .red
+        if show_one_player === true
+            form(action='/admin/player_stats',method='POST',id='player_stats_games_form')
+                input(type='hidden',name='playername',value=playername)
+                h1.red Rename Player
+                p You can rename this player using the textbox below. THIS IS NON REVERSIBLE.
+                table.page_width.colorized
+                    tr
+                        th
+                        th.left Current Name "#{playername}"
+                    tr
+                        td.right Rename Player:
+                        td
+                            input(type='text',name='renameplayer',value=playername)
+                h1 Player Stats for #{playername}
+                h2.yellow NOTE: Only partial stats for each game are displayed.
+                p You can use this form to invalidate game stats. Uncheck the box for games you wish to invalidate stats for and Submit the form.
+                table.page_width.colorized
+                    tr
+                        th Date
+                        th Away
+                        th Home
+                        th.left Player
+                        th POS
+                        th G
+                        th A
+                        th SA
+                        th GA
+                        th Game Type
+                        th Keep Stats
+                    for stat in playerstats
+                        tr
+                            td=pretty_date(stat.game.date)
+                            td.center=stat.game.away_team.team_name
+                            td.center=stat.game.home_team.team_name
+                            td=stat.player.playername
+                            td.center=stat.player.position
+                            td.center=stat.player.skgoals
+                            td.center=stat.player.skassists
+                            td.center=stat.player.glshots
+                            td.center=stat.player.glga
+                            td.center=stat.game.game_type
+                            td.center
+                                input(type="checkbox",name=stat.game._id,checked=stat.valid)
+                                input(type="hidden",name=stat.game._id,value='tag')
+                .center
+                    button(type="submit") Update Player                  
+        else if show_all_players === true
+            form(action='/admin/player_stats',method="GET",id="player_stats_form")
+                input(name='season_id',type='hidden',value=current_season)
+                h1.red Player Stats
+                p Season:
+                    select(id='season',onChange='window.location.href="/admin/player_stats?season_id="+this.value;')
+                        for season in seasons
+                            option(value=season.season_id,selected=query.season_id==season.season_id)=season.label
+                .center.page_width
+                    p Look up Player:
+                    select(name="player_dropdown",id="player_dropdown")
+                        for p in players
+                            option(value=p)=p
+                    br
+                    button(type="submit") Look Up
+                    br
+                    br

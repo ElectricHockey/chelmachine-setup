@@ -1,0 +1,61 @@
+extends ../layout
+
+mixin admin_row(href,name,description)
+    tr
+        td
+            a(href=href)=name
+        td=description
+
+block content
+    .red
+        if session.admin === true
+            h1.red Administration Home Page
+            p Total Matches Count: #{site_stats.num_matches}
+        else if session.stats === true
+            h1.purple Stats Home Page
+        else if session.transactions === true
+            h1.green Transactions Home Page
+        else if session.disciplinary === true
+            h1.blue Disciplinary Home Page
+        if session.stats === true || session.admin === true
+            h2.purple Stats Links
+            table.page_width.colorized
+                tr 
+                    th.half_page_width Link
+                    th Description
+                +admin_row('/admin/link_stats','📊 LINK STATS','Link Game Stats from EA/Manual sources')
+                +admin_row('/admin/unlink_stats','🔄 UNLINK STATS','Unlink previously linked game stats')
+                +admin_row('/admin/player_stats','♟️ PLAYERS','Rename Players and Invalidate Player Stats')
+                +admin_row('/admin/box_scores','🎼 BOX SCORES','Set Box Scores For Games')
+        if session.transactions === true || session.admin === true
+            h2.green Transactions Links
+            table.page_width.colorized
+                tr
+                    th.half_page_width Link
+                    th Description
+                +admin_row('/admin/releases','💇 RELEASES','Process Release Requests')
+                +admin_row('/admin/trades','🛒 TRADES','Process Accepted Trade Requests')
+        if session.disciplinary === true || session.admin === true
+            h2.blue Disciplinary Links
+            table.page_width.colorized
+                tr
+                    th.half_page_width Link
+                    th Description
+                +admin_row('/admin/player_stats','♟️ PLAYERS','Rename Players and Invalidate Player Stats')
+        if session.admin === true
+            h2.red Admin Links
+            table.page_width.colorized
+                tr
+                    th.half_page_width Link
+                    th Description
+                +admin_row('/admin/fa_offers','📝 FA OFFERS','Review FA Offers')
+                +admin_row('/admin/fo_requests', '👮 FO CHANGE REQUESTS', 'Process Front Office Change Requests')
+                +admin_row('/admin/home_page','🏠 HOMEPAGE','Manage Homepage')
+                +admin_row('/admin/rulebook','📏 RULEBOOK','Manage Rulebook')
+                +admin_row('/admin/seasons','📅 SEASONS','Manage Seasons')
+                +admin_row('/admin/teams','🏒 TEAMS','Manage Teams')
+                +admin_row('/admin/add_games','🏟 ADD GAMES','Add Games to Schedule')
+                +admin_row('/admin/manage_games','🏟 EDIT/REMOVE GAMES','Manage Games')
+                +admin_row('/admin/manage_playoffs','🏟 PLAYOFFS','Manage Playoff Brackets')
+                +admin_row('/admin/manage_trophy_case','🏆 TROPHY CASE','Set up trophies and assign recipients')
+                +admin_row('/admin/users','👤 USERS','Manage User Accounts')

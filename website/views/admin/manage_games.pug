@@ -1,0 +1,50 @@
+extends ../layout
+include ../_visual
+
+block content
+    .red
+        h1.red Manage Existing Games
+        p Here you can edit existing games.
+        p Season:
+            select(name="season_id",onchange=`window.location.href="/admin/manage_games?season_id="+this.value;`)
+                for season in seasons
+                    option(value=season.season_id,selected=season_id==season.season_id)=season.label
+        form(action="/admin/manage_games",method="POST",id="remove_games_form")
+            table.page_width.colorized
+                tr
+                    th.left Added
+                    th Type
+                    th Away
+                    th Home
+                    th Action
+                    th Date
+                    th User
+                - let last_insert_date, insert_date;
+                for game in games
+                    if last_insert_date !== insert_date
+                        - insert_date = last_insert_date;
+                        tr
+                            th(colspan=7) Break
+                    tr
+                        td
+                            if game.insert_date !== undefined && game.insert_date instanceof Date
+                                - last_insert_date = game.insert_date.getTime();
+                                span=pretty_date(game.insert_date)
+                        td.center=game.game_type
+                        td.center
+                            +team_logo(game.away_team,'logo_small')
+                        td.center
+                            +team_logo(game.home_team,'logo_small')
+                        td.center
+                            select(name=game._id)
+                                each action in manage_game_actions
+                                    option(value=action)=action
+                        td.center
+                            input(type='datetime-local',name=game._id,value=game.local_date)
+                        td.center
+                            if game.insert_user !== undefined
+                                span=game.insert_user.username
+                tr
+                    th(colspan=7).center
+                        button(type="submit") Edit Games
+
