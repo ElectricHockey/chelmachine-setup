@@ -30,7 +30,7 @@ app.use(file_upload());
 
 // session setup
 const session_info = {
-  secret: 'YOURSECRETHERE',
+  secret: '2DdMqcSPd8gQpmnMn-rR3gGVMFulTtDD',
   cookie: {},
   resave: false,
   saveUninitialized: false,
