@@ -1,0 +1,98 @@
+from sshtunnel import SSHTunnelForwarder
+from pymongo import MongoClient
+import curses
+import sys
+import requests
+
+use_tunnel = True
+stdscr = curses.initscr()
+ip_chelmachine = ''
+crashes = []
+unique_crashes = {}
+
+def get_crashes(client):
+    global unique_crashes, crashes
+
+    db_names = client.list_database_names()
+    for db_name in db_names:
+        collection_names = client[db_name].list_collection_names()
+        if 'exceptions' in client[db_name].list_collection_names():
+            for exc in client[db_name]['exceptions'].find({'hidden':{'$exists':False}}):
+                exc['db'] = db_name
+                crashes.append(exc)
+                unique_crashes[exc['stack']] = 1
+
+    unique_crashes = list(unique_crashes.keys())
+    stdscr.addstr(f'Total Crashes: {len(crashes)}\n')
+    stdscr.addstr(f'Unique Crashes: {len(unique_crashes)}\n')
+
+def mark_crash_fixed(client, callstack):
+    for exc in crashes:
+        if exc['stack'] == callstack:
+            client[exc['db']]['exceptions'].update_one({'_id':exc['_id']},{'$set':{'hidden':True}})
+
+def read_crash_report(client, index):
+    stdscr.clear()
+
+    if index < len(unique_crashes):
+        callstack = unique_crashes[index]
+        dbs = {}
+
+        for exc in crashes:
+            if exc['stack'] == callstack:
+                if exc['db'] not in dbs:
+                    dbs[exc['db']] = 0
+                dbs[exc['db']] = dbs[exc['db']] + 1
+                
+        stdscr.addstr(f'Call Stack {1+index} (SSH Tunnel: {use_tunnel}):\n')
+        try:
+            stdscr.addstr(f'{callstack}\n')
+            stdscr.addstr(f'Impacted Databases: {dbs}\n')
+            stdscr.addstr('1 - Next Crash Report\n')
+            stdscr.addstr('2 - Mark Fixed\n')
+            stdscr.addstr('ANY - Exit\n')
+            c = stdscr.getch()
+            if c == 49:
+                read_crash_report(client, index + 1)
+            elif c == 50:
+                mark_crash_fixed(client, callstack)
+                read_crash_report(client, index + 1)
+        except:
+            read_crash_report(client, index + 1)
+    else:
+        stdscr.addstr('No more crashes!\n')
+
+def main_menu(client):
+    stdscr.addstr('Main Menu\n')
+    stdscr.addstr('1 - Read Call Stack\n')
+    c = stdscr.getch()
+    if c == 49:
+        read_crash_report(client, 0)
+    else:
+        stdscr.addstr('Unknown Key\n')
+        main_menu()
+
+if __name__ == '__main__':
+    curses.noecho()
+    curses.cbreak()
+    stdscr.addstr(f"Crash Reporter (SSH Tunnel: {use_tunnel})\n")
+    
+    mongo_port = 27017
+    if use_tunnel:
+        stdscr.addstr(f'Connecting to Chel Machine DB @ {ip_chelmachine}\n')
+        server = SSHTunnelForwarder(ip_chelmachine, ssh_username='root', remote_bind_address=('127.0.0.1', 27017))
+        server.start()
+        mongo_port = server.local_bind_port
+    client = MongoClient('127.0.0.1', mongo_port)
+
+    get_crashes(client)
+    main_menu(client)
+
+    curses.nocbreak()
+    stdscr.keypad(False)
+    curses.echo()
+    curses.endwin()
+
+    client.close()
+    if use_tunnel:
+        server.stop()
